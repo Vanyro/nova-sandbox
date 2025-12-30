@@ -1,0 +1,19 @@
+services:
+  sandbox-api:
+    build: .
+    container_name: nova_sandbox_api
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - sqlite_data:/app/prisma/db
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - HOST=0.0.0.0
+      - DATABASE_URL=file:./prisma/db/dev.db
+    command: sh -c "npm run prisma:generate && npm run dev"
+
+volumes:
+  sqlite_data:

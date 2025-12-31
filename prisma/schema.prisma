@@ -14,25 +14,54 @@ model User {
   name      String
   email     String    @unique
   role      String    @default("USER") // e.g., "USER", "ADMIN"
+  persona   String?   // e.g., "student", "investor", "spender"
   accounts  Account[]
   createdAt DateTime  @default(now())
 }
 
 model Account {
-  id           String        @id @default(uuid())
-  userId       String
-  type         String        // e.g., "CHECKING", "SAVINGS"
-  balance      Int           @default(0) // Stored in CENTS to avoid rounding errors
-  user         User          @relation(fields: [userId], references: [id])
-  transactions Transaction[]
-  createdAt    DateTime      @default(now())
+  id               String        @id @default(uuid())
+  userId           String
+  type             String        // e.g., "CHECKING", "SAVINGS"
+  balance          Int           @default(0) // Stored in CENTS to avoid rounding errors
+  persona          String?       // Denormalized for easier querying
+  riskLevel        String        @default("LOW") // "LOW", "MEDIUM", "HIGH"
+  frozen           Boolean       @default(false) // Account freeze status
+  overdraftEnabled Boolean       @default(false) // Whether overdraft is allowed
+  dailyLimit       Int           @default(500000) // Daily spending limit in cents ($5000 default)
+  dailySpent       Int           @default(0) // Amount spent today in cents
+  dailySpentDate   DateTime?     // Date of last daily spend reset
+  user             User          @relation(fields: [userId], references: [id])
+  transactions     Transaction[]
+  createdAt        DateTime      @default(now())
 }
 
 model Transaction {
-  id        String   @id @default(uuid())
-  accountId String
-  type      String   // "credit" or "debit"
-  amount    Int      // Always positive, type determines credit/debit
-  account   Account  @relation(fields: [accountId], references: [id])
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  accountId       String
+  type            String   // "credit" or "debit"
+  amount          Int      // Always positive, type determines credit/debit
+  authorizedAmount Int?    // Original authorized amount (for gas station style)
+  category        String?  // e.g., "food", "rent", "salary", "investments"
+  merchant        String?  // Merchant name
+  location        String?  // City/location
+  reference       String?  // Transaction reference ID
+  description     String?  // Human-readable description
+  status          String   @default("pending") // "pending", "posted", "canceled"
+  postAt          DateTime? // When the transaction should be auto-posted
+  postedAt        DateTime? // When the transaction was actually posted
+  account         Account  @relation(fields: [accountId], references: [id])
+  createdAt       DateTime @default(now())
+}
+
+// Simulation state tracking
+model SimulationState {
+  id              String   @id @default("singleton")
+  lastRunAt       DateTime?
+  transactionsToday Int    @default(0)
+  failuresInjected Int     @default(0)
+  currentMode     String   @default("normal") // Chaos mode
+  isRunning       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

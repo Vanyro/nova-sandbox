@@ -12,8 +12,11 @@ services:
       - NODE_ENV=development
       - PORT=4000
       - HOST=0.0.0.0
-      - DATABASE_URL=file:./prisma/db/dev.db
-    command: sh -c "npm run prisma:generate && npm run dev"
+      - DATABASE_URL=file:./db/dev.db
+      - AUTO_START_SIMULATION=false
+      - SIMULATION_MODE=random
+      - SIMULATION_INTERVAL=1h
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm run dev"
 
 volumes:
   sqlite_data:

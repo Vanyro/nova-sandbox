@@ -1,15 +1,22 @@
 {
   "name": "nova_sandbox",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "seed": "tsx src/seed/index.ts",
+    "seed:reset": "tsx src/seed/index.ts --reset",
+    "seed:light": "SEED_MODE=light tsx src/seed/index.ts",
+    "seed:stress": "SEED_MODE=stress tsx src/seed/index.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prisma:studio": "prisma studio",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:phase3": "node --import tsx --test tests/phase3.test.ts",
+    "simulation:start": "tsx -e \"import { startSimulation } from './src/worker/simulationEngine.js'; startSimulation();\""
   },
   "keywords": [],
   "author": "",
@@ -28,6 +35,7 @@
     "better-sqlite3": "^12.5.0",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.2",
+    "fastify-plugin": "^5.1.0",
     "tsx": "^4.21.0"
   }
 }

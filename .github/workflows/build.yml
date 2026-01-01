@@ -69,11 +69,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Generate artifact attestation
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: novafintech/nova-sandbox
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true

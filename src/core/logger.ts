@@ -9,7 +9,7 @@ export class Logger {
   private level: LogLevel;
   private prefix: string;
 
-  constructor(prefix: string = 'SeedEngine', level: LogLevel = LogLevel.INFO) {
+  constructor(prefix: string = "SeedEngine", level: LogLevel = LogLevel.INFO) {
     this.prefix = prefix;
     this.level = level;
   }
@@ -20,12 +20,12 @@ export class Logger {
     const timestamp = new Date().toISOString();
     const levelName = LogLevel[level];
     const color = this.getColor(level);
-    const reset = '\x1b[0m';
+    const reset = "\x1b[0m";
 
     let output = `${color}[${timestamp}] [${this.prefix}] [${levelName}]${reset} ${message}`;
 
     if (data !== undefined) {
-      output += ' ' + JSON.stringify(data, null, 2);
+      output += " " + JSON.stringify(data, null, 2);
     }
 
     console.log(output);
@@ -34,15 +34,15 @@ export class Logger {
   private getColor(level: LogLevel): string {
     switch (level) {
       case LogLevel.DEBUG:
-        return '\x1b[36m'; // Cyan
+        return "\x1b[36m"; // Cyan
       case LogLevel.INFO:
-        return '\x1b[32m'; // Green
+        return "\x1b[32m"; // Green
       case LogLevel.WARN:
-        return '\x1b[33m'; // Yellow
+        return "\x1b[33m"; // Yellow
       case LogLevel.ERROR:
-        return '\x1b[31m'; // Red
+        return "\x1b[31m"; // Red
       default:
-        return '\x1b[0m'; // Reset
+        return "\x1b[0m"; // Reset
     }
   }
 
@@ -63,7 +63,7 @@ export class Logger {
   }
 
   section(title: string) {
-    const separator = '='.repeat(60);
+    const separator = "=".repeat(60);
     this.info(`\n${separator}`);
     this.info(title);
     this.info(separator);
@@ -87,9 +87,8 @@ export class Logger {
   }
 }
 
-export const createLogger = (prefix: string = 'SeedEngine') => {
+export const createLogger = (prefix: string = "SeedEngine") => {
   const levelEnv = process.env.LOG_LEVEL?.toUpperCase();
-  const level =
-    LogLevel[levelEnv as keyof typeof LogLevel] || LogLevel.INFO;
+  const level = LogLevel[levelEnv as keyof typeof LogLevel] || LogLevel.INFO;
   return new Logger(prefix, level);
 };

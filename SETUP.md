@@ -150,6 +150,7 @@ docker-compose -f docker-compose.yml -f docker-compose.override.yml up
 ```
 
 Features:
+
 - Hot-reloading enabled
 - Source code mounted
 - Debug logging
@@ -163,6 +164,7 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 Features:
+
 - Compiled JavaScript
 - Auto-start simulation
 - Resource limits
@@ -210,7 +212,7 @@ SANDBOX_API_URL=http://localhost:4000
 
 ```typescript
 // sandboxClient.ts
-const SANDBOX_URL = process.env.SANDBOX_API_URL || 'http://localhost:4000';
+const SANDBOX_URL = process.env.SANDBOX_API_URL || "http://localhost:4000";
 
 export const sandboxApi = {
   // Accounts
@@ -228,20 +230,22 @@ export const sandboxApi = {
   // Transactions
   async getTransactions(accountId: string, params?: { status?: string }) {
     const query = new URLSearchParams(params as any).toString();
-    const res = await fetch(`${SANDBOX_URL}/accounts/${accountId}/transactions?${query}`);
+    const res = await fetch(
+      `${SANDBOX_URL}/accounts/${accountId}/transactions?${query}`,
+    );
     return res.json();
   },
 
   async createTransaction(data: {
     accountId: string;
-    type: 'credit' | 'debit';
+    type: "credit" | "debit";
     amount: number;
     description: string;
     category?: string;
   }) {
     const res = await fetch(`${SANDBOX_URL}/transactions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     return res.json();
@@ -249,12 +253,16 @@ export const sandboxApi = {
 
   // Simulation Control
   async startSimulation() {
-    const res = await fetch(`${SANDBOX_URL}/sandbox/simulation/start`, { method: 'POST' });
+    const res = await fetch(`${SANDBOX_URL}/sandbox/simulation/start`, {
+      method: "POST",
+    });
     return res.json();
   },
 
   async stopSimulation() {
-    const res = await fetch(`${SANDBOX_URL}/sandbox/simulation/stop`, { method: 'POST' });
+    const res = await fetch(`${SANDBOX_URL}/sandbox/simulation/stop`, {
+      method: "POST",
+    });
     return res.json();
   },
 
@@ -264,13 +272,16 @@ export const sandboxApi = {
   },
 
   // Chaos Mode (Testing)
-  async setChaosMode(mode: 'normal' | 'latency' | 'flaky' | 'maintenance', options?: {
-    latencyMs?: number;
-    failureRate?: number;
-  }) {
+  async setChaosMode(
+    mode: "normal" | "latency" | "flaky" | "maintenance",
+    options?: {
+      latencyMs?: number;
+      failureRate?: number;
+    },
+  ) {
     const res = await fetch(`${SANDBOX_URL}/sandbox/mode`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode, ...options }),
     });
     return res.json();
@@ -302,7 +313,7 @@ export const sandboxApi = {
 ### Example Usage
 
 ```typescript
-import { sandboxApi } from './sandboxClient';
+import { sandboxApi } from "./sandboxClient";
 
 // Get all accounts
 const { accounts } = await sandboxApi.getAccounts({ limit: 10 });
@@ -313,10 +324,10 @@ await sandboxApi.startSimulation();
 // Create a test transaction
 await sandboxApi.createTransaction({
   accountId: accounts[0].id,
-  type: 'debit',
+  type: "debit",
   amount: 5000, // $50.00 in cents
-  description: 'Test purchase',
-  category: 'shopping',
+  description: "Test purchase",
+  category: "shopping",
 });
 
 // Check for fraud alerts
@@ -324,15 +335,15 @@ const fraudData = await sandboxApi.getFraudAlerts();
 console.log(`${fraudData.totalAlerts} fraud alerts detected`);
 
 // Test error handling with chaos mode
-await sandboxApi.setChaosMode('flaky', { failureRate: 0.3 });
+await sandboxApi.setChaosMode("flaky", { failureRate: 0.3 });
 ```
 
 ### React Hook Example
 
 ```typescript
 // useSandbox.ts
-import { useEffect, useState } from 'react';
-import { sandboxApi } from './sandboxClient';
+import { useEffect, useState } from "react";
+import { sandboxApi } from "./sandboxClient";
 
 export function useSandboxStatus() {
   const [status, setStatus] = useState(null);
@@ -344,7 +355,7 @@ export function useSandboxStatus() {
         const data = await sandboxApi.getSimulationStatus();
         setStatus(data);
       } catch (error) {
-        console.error('Failed to fetch sandbox status:', error);
+        console.error("Failed to fetch sandbox status:", error);
       } finally {
         setLoading(false);
       }
@@ -373,42 +384,42 @@ http://localhost:4000/docs
 
 ### Core Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/accounts` | GET | List all accounts |
-| `/accounts/:id` | GET | Get account details |
-| `/accounts/:id/transactions` | GET | Get account transactions |
-| `/transactions` | POST | Create transaction |
-| `/transactions/:id` | GET | Get transaction |
-| `/stats` | GET | Get statistics |
+| Endpoint                     | Method | Description              |
+| ---------------------------- | ------ | ------------------------ |
+| `/accounts`                  | GET    | List all accounts        |
+| `/accounts/:id`              | GET    | Get account details      |
+| `/accounts/:id/transactions` | GET    | Get account transactions |
+| `/transactions`              | POST   | Create transaction       |
+| `/transactions/:id`          | GET    | Get transaction          |
+| `/stats`                     | GET    | Get statistics           |
 
 ### Sandbox Control
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/sandbox/simulation/start` | POST | Start simulation |
-| `/sandbox/simulation/stop` | POST | Stop simulation |
-| `/sandbox/simulation/status` | GET | Get simulation status |
-| `/sandbox/simulation/trigger` | POST | Trigger one cycle |
-| `/sandbox/mode` | PATCH | Set chaos mode |
-| `/sandbox/mode/reset` | POST | Reset to normal |
-| `/sandbox/stats` | GET | Comprehensive stats |
-| `/sandbox/health` | GET | Health check |
+| Endpoint                      | Method | Description           |
+| ----------------------------- | ------ | --------------------- |
+| `/sandbox/simulation/start`   | POST   | Start simulation      |
+| `/sandbox/simulation/stop`    | POST   | Stop simulation       |
+| `/sandbox/simulation/status`  | GET    | Get simulation status |
+| `/sandbox/simulation/trigger` | POST   | Trigger one cycle     |
+| `/sandbox/mode`               | PATCH  | Set chaos mode        |
+| `/sandbox/mode/reset`         | POST   | Reset to normal       |
+| `/sandbox/stats`              | GET    | Comprehensive stats   |
+| `/sandbox/health`             | GET    | Health check          |
 
 ### Phase 4 Engines
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/fraud` | GET | Fraud alerts summary |
-| `/fraud/:id` | GET | Get fraud alert |
-| `/fraud/:id/resolve` | POST | Resolve alert |
-| `/risk` | GET | Risk events summary |
-| `/risk/user/:id` | GET | User risk score |
-| `/loans` | GET | Loan summary |
-| `/loans/:id` | GET | Get loan details |
-| `/loans/:id/payment` | POST | Make payment |
-| `/portfolio` | GET | Portfolio summary |
-| `/compliance` | GET | Compliance status |
+| Endpoint             | Method | Description          |
+| -------------------- | ------ | -------------------- |
+| `/fraud`             | GET    | Fraud alerts summary |
+| `/fraud/:id`         | GET    | Get fraud alert      |
+| `/fraud/:id/resolve` | POST   | Resolve alert        |
+| `/risk`              | GET    | Risk events summary  |
+| `/risk/user/:id`     | GET    | User risk score      |
+| `/loans`             | GET    | Loan summary         |
+| `/loans/:id`         | GET    | Get loan details     |
+| `/loans/:id/payment` | POST   | Make payment         |
+| `/portfolio`         | GET    | Portfolio summary    |
+| `/compliance`        | GET    | Compliance status    |
 
 ---
 
@@ -416,34 +427,34 @@ http://localhost:4000/docs
 
 ### Simulation Modes
 
-| Mode | Description |
-|------|-------------|
-| `random` | Varied transaction patterns (default) |
-| `burst` | High-volume transaction bursts |
-| `realistic` | Normal banking patterns |
+| Mode        | Description                           |
+| ----------- | ------------------------------------- |
+| `random`    | Varied transaction patterns (default) |
+| `burst`     | High-volume transaction bursts        |
+| `realistic` | Normal banking patterns               |
 
 ### Chaos Modes
 
-| Mode | Description |
-|------|-------------|
-| `normal` | No failures (default) |
-| `latency` | Add artificial latency |
-| `flaky` | Random failures at configured rate |
-| `maintenance` | Return 503 for all requests |
+| Mode          | Description                        |
+| ------------- | ---------------------------------- |
+| `normal`      | No failures (default)              |
+| `latency`     | Add artificial latency             |
+| `flaky`       | Random failures at configured rate |
+| `maintenance` | Return 503 for all requests        |
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 4000 | Server port |
-| `HOST` | 0.0.0.0 | Server host |
-| `NODE_ENV` | development | Environment |
-| `DATABASE_URL` | file:./prisma/db/sandbox.db | Database path |
-| `AUTO_START_SIMULATION` | false | Start simulation on boot |
-| `SIMULATION_MODE` | random | Simulation mode |
-| `SIMULATION_INTERVAL` | 3600000 | Interval between cycles (ms) |
-| `ENABLE_SWAGGER` | true | Enable Swagger UI |
-| `LOG_LEVEL` | info | Logging level |
+| Variable                | Default                     | Description                  |
+| ----------------------- | --------------------------- | ---------------------------- |
+| `PORT`                  | 4000                        | Server port                  |
+| `HOST`                  | 0.0.0.0                     | Server host                  |
+| `NODE_ENV`              | development                 | Environment                  |
+| `DATABASE_URL`          | file:./prisma/db/sandbox.db | Database path                |
+| `AUTO_START_SIMULATION` | false                       | Start simulation on boot     |
+| `SIMULATION_MODE`       | random                      | Simulation mode              |
+| `SIMULATION_INTERVAL`   | 3600000                     | Interval between cycles (ms) |
+| `ENABLE_SWAGGER`        | true                        | Enable Swagger UI            |
+| `LOG_LEVEL`             | info                        | Logging level                |
 
 ---
 

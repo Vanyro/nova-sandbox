@@ -7,7 +7,7 @@ export class SeededRandom {
 
   constructor(seed: number | string) {
     // Convert string seed to number if needed
-    if (typeof seed === 'string') {
+    if (typeof seed === "string") {
       this.state = this.hashString(seed);
     } else {
       this.state = seed >>> 0; // Ensure 32-bit unsigned integer

@@ -3,18 +3,22 @@
  * Simulates KYC verification, AML monitoring, and sanction screening
  */
 
-import { PrismaClient } from '@prisma/client';
-import { createLogger } from '../core/logger.js';
-import { SeededRandom } from '../core/random.js';
+import { PrismaClient } from "@prisma/client";
+import { createLogger } from "../core/logger.js";
+import { SeededRandom } from "../core/random.js";
 
 const prisma = new PrismaClient();
-const logger = createLogger('ComplianceEngine');
+const logger = createLogger("ComplianceEngine");
 
-export type KYCStatus = 'pending' | 'verified' | 'rejected' | 'expired';
-export type AMLStatus = 'clear' | 'flagged' | 'blocked';
-export type SanctionStatus = 'clear' | 'match' | 'blocked';
-export type ComplianceEventType = 'kyc_check' | 'aml_screening' | 'sanction_check' | 'sar_filed';
-export type ComplianceEventStatus = 'passed' | 'failed' | 'pending' | 'flagged';
+export type KYCStatus = "pending" | "verified" | "rejected" | "expired";
+export type AMLStatus = "clear" | "flagged" | "blocked";
+export type SanctionStatus = "clear" | "match" | "blocked";
+export type ComplianceEventType =
+  | "kyc_check"
+  | "aml_screening"
+  | "sanction_check"
+  | "sar_filed";
+export type ComplianceEventStatus = "passed" | "failed" | "pending" | "flagged";
 
 // Thresholds for AML monitoring
 const AML_THRESHOLDS = {
@@ -29,8 +33,8 @@ const AML_THRESHOLDS = {
  */
 export async function processKYCVerification(
   userId: string,
-  documentType: 'passport' | 'drivers_license' | 'national_id',
-  seed?: number
+  documentType: "passport" | "drivers_license" | "national_id",
+  seed?: number,
 ): Promise<{
   success: boolean;
   status: KYCStatus;
@@ -41,7 +45,7 @@ export async function processKYCVerification(
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user) {
-    return { success: false, status: 'rejected', message: 'User not found' };
+    return { success: false, status: "rejected", message: "User not found" };
   }
 
   // Simulate verification process
@@ -52,25 +56,25 @@ export async function processKYCVerification(
   let logStatus: ComplianceEventStatus;
 
   if (roll < 0.85) {
-    status = 'verified';
-    message = 'KYC verification successful';
-    logStatus = 'passed';
+    status = "verified";
+    message = "KYC verification successful";
+    logStatus = "passed";
   } else if (roll < 0.95) {
-    status = 'pending';
-    message = 'Documents submitted for manual review';
-    logStatus = 'pending';
+    status = "pending";
+    message = "Documents submitted for manual review";
+    logStatus = "pending";
   } else {
-    status = 'rejected';
-    message = 'KYC verification failed - document quality insufficient';
-    logStatus = 'failed';
+    status = "rejected";
+    message = "KYC verification failed - document quality insufficient";
+    logStatus = "failed";
   }
 
   // Update user
   await prisma.user.update({
     where: { id: userId },
-    data: { 
+    data: {
       kycStatus: status,
-      kycVerifiedAt: status === 'verified' ? new Date() : null,
+      kycVerifiedAt: status === "verified" ? new Date() : null,
     },
   });
 
@@ -78,7 +82,7 @@ export async function processKYCVerification(
   const log = await prisma.complianceLog.create({
     data: {
       userId,
-      type: 'kyc_check',
+      type: "kyc_check",
       status: logStatus,
       description: message,
       metadata: JSON.stringify({
@@ -96,7 +100,7 @@ export async function processKYCVerification(
   });
 
   return {
-    success: status === 'verified',
+    success: status === "verified",
     status,
     message,
     verificationId: log.id,
@@ -118,21 +122,27 @@ export async function analyzeTransactionAML(
 
   // Check for large cash transaction
   if (amount >= AML_THRESHOLDS.largeCashTransaction) {
-    flags.push('large_cash_transaction');
-    
+    flags.push("large_cash_transaction");
+
     await prisma.complianceLog.create({
       data: {
         userId,
-        type: 'aml_screening',
-        status: 'flagged',
+        type: "aml_screening",
+        status: "flagged",
         description: `Large transaction detected: $${(amount / 100).toFixed(2)}`,
-        metadata: JSON.stringify({ amount, threshold: AML_THRESHOLDS.largeCashTransaction }),
+        metadata: JSON.stringify({
+          amount,
+          threshold: AML_THRESHOLDS.largeCashTransaction,
+        }),
       },
     });
   }
 
   // Check for structuring (transactions just under reporting threshold)
-  if (amount >= AML_THRESHOLDS.structuringThreshold && amount < AML_THRESHOLDS.largeCashTransaction) {
+  if (
+    amount >= AML_THRESHOLDS.structuringThreshold &&
+    amount < AML_THRESHOLDS.largeCashTransaction
+  ) {
     // Check for pattern of similar transactions
     const recentSimilar = await prisma.transaction.count({
       where: {
@@ -148,13 +158,13 @@ export async function analyzeTransactionAML(
     });
 
     if (recentSimilar >= 3) {
-      flags.push('structuring_detected');
+      flags.push("structuring_detected");
 
       await prisma.complianceLog.create({
         data: {
           userId,
-          type: 'aml_screening',
-          status: 'flagged',
+          type: "aml_screening",
+          status: "flagged",
           description: `Potential structuring detected: ${recentSimilar} transactions just under reporting threshold`,
           metadata: JSON.stringify({ recentCount: recentSimilar, amount }),
         },
@@ -176,29 +186,29 @@ export async function analyzeTransactionAML(
   });
 
   if ((dailyStats._sum.amount || 0) > AML_THRESHOLDS.dailyTransactionLimit) {
-    flags.push('daily_limit_exceeded');
+    flags.push("daily_limit_exceeded");
   }
 
   if ((dailyStats._count || 0) > AML_THRESHOLDS.highFrequencyCount) {
-    flags.push('high_frequency_trading');
+    flags.push("high_frequency_trading");
   }
 
   // Update user AML status if flagged
   if (flags.length > 0) {
     const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    
-    if (currentUser?.amlStatus === 'clear') {
+
+    if (currentUser?.amlStatus === "clear") {
       await prisma.user.update({
         where: { id: userId },
-        data: { amlStatus: 'flagged' },
+        data: { amlStatus: "flagged" },
       });
 
       await prisma.complianceLog.create({
         data: {
           userId,
-          type: 'aml_screening',
-          status: 'flagged',
-          description: `AML review initiated due to: ${flags.join(', ')}`,
+          type: "aml_screening",
+          status: "flagged",
+          description: `AML review initiated due to: ${flags.join(", ")}`,
           metadata: JSON.stringify({ flags }),
         },
       });
@@ -220,7 +230,7 @@ export async function analyzeTransactionAML(
 export async function performSanctionScreening(
   userId: string,
   name?: string,
-  _country?: string
+  _country?: string,
 ): Promise<{
   clear: boolean;
   status: SanctionStatus;
@@ -228,31 +238,31 @@ export async function performSanctionScreening(
 }> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
-    return { clear: false, status: 'match', matches: [] };
+    return { clear: false, status: "match", matches: [] };
   }
 
   const checkName = name || user.name;
   const matches: Array<{ type: string; confidence: number }> = [];
 
   // Check for sanctioned patterns in name (simulation)
-  const sanctionedPatterns = ['sanctioned', 'blocked', 'restricted', 'embargo'];
+  const sanctionedPatterns = ["sanctioned", "blocked", "restricted", "embargo"];
   const lowerName = checkName.toLowerCase();
   for (const pattern of sanctionedPatterns) {
     if (lowerName.includes(pattern)) {
-      matches.push({ type: 'name_match', confidence: 0.95 });
+      matches.push({ type: "name_match", confidence: 0.95 });
     }
   }
 
   // Simulate false positive chance
   if (Math.random() < 0.02) {
-    matches.push({ type: 'fuzzy_name_match', confidence: 0.45 });
+    matches.push({ type: "fuzzy_name_match", confidence: 0.45 });
   }
 
-  let status: SanctionStatus = 'clear';
-  if (matches.some(m => m.confidence >= 0.9)) {
-    status = 'blocked';
+  let status: SanctionStatus = "clear";
+  if (matches.some((m) => m.confidence >= 0.9)) {
+    status = "blocked";
   } else if (matches.length > 0) {
-    status = 'match';
+    status = "match";
   }
 
   // Update user
@@ -265,16 +275,19 @@ export async function performSanctionScreening(
   await prisma.complianceLog.create({
     data: {
       userId,
-      type: 'sanction_check',
-      status: status === 'clear' ? 'passed' : 'flagged',
+      type: "sanction_check",
+      status: status === "clear" ? "passed" : "flagged",
       description: `Sanction screening completed: ${status}`,
       metadata: JSON.stringify({ matches, screenedName: checkName }),
     },
   });
 
-  logger.info(`Sanction screening for user ${userId}`, { status, matchCount: matches.length });
+  logger.info(`Sanction screening for user ${userId}`, {
+    status,
+    matchCount: matches.length,
+  });
 
-  return { clear: status === 'clear', status, matches };
+  return { clear: status === "clear", status, matches };
 }
 
 /**
@@ -282,31 +295,31 @@ export async function performSanctionScreening(
  */
 export async function clearAMLFlag(
   userId: string,
-  reviewerNote: string
+  reviewerNote: string,
 ): Promise<{ success: boolean; newStatus: AMLStatus }> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  
+
   if (!user) {
-    return { success: false, newStatus: 'clear' };
+    return { success: false, newStatus: "clear" };
   }
 
-  if (user.amlStatus === 'clear') {
-    return { success: true, newStatus: 'clear' };
+  if (user.amlStatus === "clear") {
+    return { success: true, newStatus: "clear" };
   }
 
   await prisma.user.update({
     where: { id: userId },
-    data: { amlStatus: 'clear' },
+    data: { amlStatus: "clear" },
   });
 
   await prisma.complianceLog.create({
     data: {
       userId,
-      type: 'aml_screening',
-      status: 'passed',
-      description: 'AML flag cleared after review',
-      metadata: JSON.stringify({ 
-        previousStatus: user.amlStatus, 
+      type: "aml_screening",
+      status: "passed",
+      description: "AML flag cleared after review",
+      metadata: JSON.stringify({
+        previousStatus: user.amlStatus,
         reviewerNote,
         clearedAt: new Date().toISOString(),
       }),
@@ -315,7 +328,7 @@ export async function clearAMLFlag(
 
   logger.info(`AML flag cleared for user ${userId}`);
 
-  return { success: true, newStatus: 'clear' };
+  return { success: true, newStatus: "clear" };
 }
 
 /**
@@ -323,11 +336,11 @@ export async function clearAMLFlag(
  */
 export async function blockUserAML(
   userId: string,
-  reason: string
+  reason: string,
 ): Promise<{ success: boolean }> {
   await prisma.user.update({
     where: { id: userId },
-    data: { amlStatus: 'blocked' },
+    data: { amlStatus: "blocked" },
   });
 
   // Freeze all accounts
@@ -343,8 +356,8 @@ export async function blockUserAML(
   await prisma.complianceLog.create({
     data: {
       userId,
-      type: 'aml_screening',
-      status: 'failed',
+      type: "aml_screening",
+      status: "failed",
       description: `User blocked due to AML concerns: ${reason}`,
       metadata: JSON.stringify({ reason }),
     },
@@ -363,17 +376,17 @@ export async function getUserComplianceLogs(
   options: {
     limit?: number;
     types?: ComplianceEventType[];
-  } = {}
+  } = {},
 ): Promise<any[]> {
   const where: any = { userId };
-  
+
   if (options.types?.length) {
     where.type = { in: options.types };
   }
 
   return prisma.complianceLog.findMany({
     where,
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     take: options.limit || 50,
   });
 }
@@ -411,21 +424,21 @@ export async function getComplianceSummary(): Promise<{
   });
 
   const kycStats = {
-    verified: users.filter(u => u.kycStatus === 'verified').length,
-    pending: users.filter(u => u.kycStatus === 'pending').length,
-    rejected: users.filter(u => u.kycStatus === 'rejected').length,
+    verified: users.filter((u) => u.kycStatus === "verified").length,
+    pending: users.filter((u) => u.kycStatus === "pending").length,
+    rejected: users.filter((u) => u.kycStatus === "rejected").length,
   };
 
   const amlStats = {
-    clear: users.filter(u => u.amlStatus === 'clear').length,
-    flagged: users.filter(u => u.amlStatus === 'flagged').length,
-    blocked: users.filter(u => u.amlStatus === 'blocked').length,
+    clear: users.filter((u) => u.amlStatus === "clear").length,
+    flagged: users.filter((u) => u.amlStatus === "flagged").length,
+    blocked: users.filter((u) => u.amlStatus === "blocked").length,
   };
 
   const sanctionStats = {
-    clear: users.filter(u => u.sanctionStatus === 'clear').length,
-    match: users.filter(u => u.sanctionStatus === 'match').length,
-    blocked: users.filter(u => u.sanctionStatus === 'blocked').length,
+    clear: users.filter((u) => u.sanctionStatus === "clear").length,
+    match: users.filter((u) => u.sanctionStatus === "match").length,
+    blocked: users.filter((u) => u.sanctionStatus === "blocked").length,
   };
 
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -436,7 +449,9 @@ export async function getComplianceSummary(): Promise<{
 
   const recentEvents = {
     total: recentLogs.length,
-    flagged: recentLogs.filter(l => l.status === 'flagged' || l.status === 'failed').length,
+    flagged: recentLogs.filter(
+      (l) => l.status === "flagged" || l.status === "failed",
+    ).length,
   };
 
   return { kycStats, amlStats, sanctionStats, recentEvents };
@@ -450,21 +465,21 @@ export async function runScheduledComplianceChecks(): Promise<{
   sanctionRescreen: number;
   amlReviewed: number;
 }> {
-  logger.section('Running Scheduled Compliance Checks');
+  logger.section("Running Scheduled Compliance Checks");
 
   // Expire KYC for users verified > 30 days ago (simulation)
   const kycExpiryDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const kycExpiredResult = await prisma.user.updateMany({
     where: {
-      kycStatus: 'verified',
+      kycStatus: "verified",
       kycVerifiedAt: { lt: kycExpiryDate },
     },
-    data: { kycStatus: 'expired' },
+    data: { kycStatus: "expired" },
   });
 
   // Re-screen users with sanction matches
   const potentialMatches = await prisma.user.findMany({
-    where: { sanctionStatus: 'match' },
+    where: { sanctionStatus: "match" },
     take: 10,
   });
 
@@ -476,10 +491,10 @@ export async function runScheduledComplianceChecks(): Promise<{
 
   // Count flagged AML users
   const amlReviewed = await prisma.user.count({
-    where: { amlStatus: 'flagged' },
+    where: { amlStatus: "flagged" },
   });
 
-  logger.info('Scheduled compliance checks complete', {
+  logger.info("Scheduled compliance checks complete", {
     kycExpired: kycExpiredResult.count,
     sanctionRescreen,
     amlReviewed,

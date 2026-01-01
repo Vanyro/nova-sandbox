@@ -5,4 +5,4 @@ export {
   getSimulationStats,
   triggerSimulationCycle,
   runSimulationCycle,
-} from './simulationEngine.js';
+} from "./simulationEngine.js";

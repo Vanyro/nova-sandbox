@@ -1,5 +1,5 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -14,50 +14,59 @@ interface AccountQueryParams {
 // OpenAPI schemas for account routes
 const accountSchemas = {
   listAccounts: {
-    tags: ['Accounts'],
-    summary: 'List all accounts',
-    description: 'Retrieve a paginated list of bank accounts with optional filters',
+    tags: ["Accounts"],
+    summary: "List all accounts",
+    description:
+      "Retrieve a paginated list of bank accounts with optional filters",
     querystring: {
-      type: 'object',
+      type: "object",
       properties: {
-        page: { type: 'integer', default: 1, description: 'Page number' },
-        limit: { type: 'integer', default: 20, description: 'Items per page' },
-        userId: { type: 'string', format: 'uuid', description: 'Filter by user ID' },
-        persona: { type: 'string', description: 'Filter by persona type' },
-        type: { type: 'string', enum: ['checking', 'savings', 'investment'], description: 'Filter by account type' },
+        page: { type: "integer", default: 1, description: "Page number" },
+        limit: { type: "integer", default: 20, description: "Items per page" },
+        userId: {
+          type: "string",
+          format: "uuid",
+          description: "Filter by user ID",
+        },
+        persona: { type: "string", description: "Filter by persona type" },
+        type: {
+          type: "string",
+          enum: ["checking", "savings", "investment"],
+          description: "Filter by account type",
+        },
       },
     },
   },
   getAccount: {
-    tags: ['Accounts'],
-    summary: 'Get account by ID',
-    description: 'Retrieve detailed information about a specific account',
+    tags: ["Accounts"],
+    summary: "Get account by ID",
+    description: "Retrieve detailed information about a specific account",
     params: {
-      type: 'object',
+      type: "object",
       properties: {
-        id: { type: 'string', format: 'uuid', description: 'Account ID' },
+        id: { type: "string", format: "uuid", description: "Account ID" },
       },
-      required: ['id'],
+      required: ["id"],
     },
   },
   getAccountTransactions: {
-    tags: ['Accounts'],
-    summary: 'Get account transactions',
-    description: 'Retrieve paginated transactions for a specific account',
+    tags: ["Accounts"],
+    summary: "Get account transactions",
+    description: "Retrieve paginated transactions for a specific account",
     params: {
-      type: 'object',
+      type: "object",
       properties: {
-        id: { type: 'string', format: 'uuid', description: 'Account ID' },
+        id: { type: "string", format: "uuid", description: "Account ID" },
       },
-      required: ['id'],
+      required: ["id"],
     },
     querystring: {
-      type: 'object',
+      type: "object",
       properties: {
-        page: { type: 'integer', default: 1 },
-        limit: { type: 'integer', default: 20 },
-        status: { type: 'string', enum: ['pending', 'posted', 'canceled'] },
-        type: { type: 'string', enum: ['credit', 'debit'] },
+        page: { type: "integer", default: 1 },
+        limit: { type: "integer", default: 20 },
+        status: { type: "string", enum: ["pending", "posted", "canceled"] },
+        type: { type: "string", enum: ["credit", "debit"] },
       },
     },
   },
@@ -66,11 +75,11 @@ const accountSchemas = {
 export async function accountRoutes(fastify: FastifyInstance) {
   // GET /accounts - List accounts with pagination and filters
   fastify.get(
-    '/accounts',
+    "/accounts",
     { schema: accountSchemas.listAccounts },
     async (
       request: FastifyRequest<{ Querystring: AccountQueryParams }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const { userId, persona, type } = request.query;
@@ -99,7 +108,7 @@ export async function accountRoutes(fastify: FastifyInstance) {
               },
             },
             transactions: {
-              orderBy: { createdAt: 'desc' },
+              orderBy: { createdAt: "desc" },
               take: 1,
               select: { createdAt: true },
             },
@@ -109,7 +118,7 @@ export async function accountRoutes(fastify: FastifyInstance) {
           },
           skip: (page - 1) * limit,
           take: limit,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         });
 
         // Compute stats for each account
@@ -117,23 +126,23 @@ export async function accountRoutes(fastify: FastifyInstance) {
           accounts.map(async (account) => {
             // Get credit/debit totals
             const stats = await prisma.transaction.groupBy({
-              by: ['type'],
+              by: ["type"],
               where: { accountId: account.id },
               _sum: { amount: true },
             });
 
             const creditTotal =
-              stats.find((s) => s.type === 'credit')?._sum.amount || 0;
+              stats.find((s) => s.type === "credit")?._sum.amount || 0;
             const debitTotal =
-              stats.find((s) => s.type === 'debit')?._sum.amount || 0;
+              stats.find((s) => s.type === "debit")?._sum.amount || 0;
 
             // Calculate health score
-            let healthScore = 'GOOD';
+            let healthScore = "GOOD";
             if (account.balance < 0) {
-              healthScore = 'CRITICAL';
+              healthScore = "CRITICAL";
             } else if (account.balance < 10000) {
               // Less than $100
-              healthScore = 'WARNING';
+              healthScore = "WARNING";
             }
 
             return {
@@ -145,15 +154,14 @@ export async function accountRoutes(fastify: FastifyInstance) {
               persona: account.persona,
               riskLevel: account.riskLevel,
               createdAt: account.createdAt,
-              lastTransactionDate:
-                account.transactions[0]?.createdAt || null,
+              lastTransactionDate: account.transactions[0]?.createdAt || null,
               transactionCount: account._count.transactions,
               creditTotal,
               debitTotal,
               healthScore,
               user: account.user,
             };
-          })
+          }),
         );
 
         reply.send({
@@ -167,17 +175,17 @@ export async function accountRoutes(fastify: FastifyInstance) {
         });
       } catch (error) {
         fastify.log.error(error);
-        reply.status(500).send({ error: 'Failed to fetch accounts' });
+        reply.status(500).send({ error: "Failed to fetch accounts" });
       }
-    }
+    },
   );
 
   // GET /accounts/:id - Get single account with detailed stats
   fastify.get(
-    '/accounts/:id',
+    "/accounts/:id",
     async (
       request: FastifyRequest<{ Params: { id: string } }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const { id } = request.params;
@@ -187,7 +195,7 @@ export async function accountRoutes(fastify: FastifyInstance) {
           include: {
             user: true,
             transactions: {
-              orderBy: { createdAt: 'desc' },
+              orderBy: { createdAt: "desc" },
               take: 10,
             },
             _count: {
@@ -197,20 +205,20 @@ export async function accountRoutes(fastify: FastifyInstance) {
         });
 
         if (!account) {
-          return reply.status(404).send({ error: 'Account not found' });
+          return reply.status(404).send({ error: "Account not found" });
         }
 
         // Get stats
         const stats = await prisma.transaction.groupBy({
-          by: ['type'],
+          by: ["type"],
           where: { accountId: id },
           _sum: { amount: true },
         });
 
         const creditTotal =
-          stats.find((s) => s.type === 'credit')?._sum.amount || 0;
+          stats.find((s) => s.type === "credit")?._sum.amount || 0;
         const debitTotal =
-          stats.find((s) => s.type === 'debit')?._sum.amount || 0;
+          stats.find((s) => s.type === "debit")?._sum.amount || 0;
 
         reply.send({
           ...account,
@@ -224,8 +232,8 @@ export async function accountRoutes(fastify: FastifyInstance) {
         });
       } catch (error) {
         fastify.log.error(error);
-        reply.status(500).send({ error: 'Failed to fetch account' });
+        reply.status(500).send({ error: "Failed to fetch account" });
       }
-    }
+    },
   );
 }

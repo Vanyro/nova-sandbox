@@ -3,19 +3,19 @@
  * Handles the AUTHORIZED → PENDING → POSTED lifecycle
  */
 
-import { PrismaClient } from '@prisma/client';
-import { createLogger } from '../core/logger.js';
-import { getSimulationConfig } from '../core/simulationConfig.js';
-import { SeededRandom } from '../core/random.js';
+import { PrismaClient } from "@prisma/client";
+import { createLogger } from "../core/logger.js";
+import { getSimulationConfig } from "../core/simulationConfig.js";
+import { SeededRandom } from "../core/random.js";
 
 const prisma = new PrismaClient();
-const logger = createLogger('TransactionLifecycle');
+const logger = createLogger("TransactionLifecycle");
 
-export type TransactionStatus = 'pending' | 'posted' | 'canceled';
+export type TransactionStatus = "pending" | "posted" | "canceled";
 
 export interface CreateTransactionOptions {
   accountId: string;
-  type: 'credit' | 'debit';
+  type: "credit" | "debit";
   amount: number;
   category?: string;
   merchant?: string;
@@ -38,23 +38,23 @@ export interface TransactionResult {
 async function validateTransaction(
   account: any,
   type: string,
-  amount: number
+  amount: number,
 ): Promise<{ valid: boolean; error?: string; code?: string }> {
   // Check if account is frozen
   if (account.frozen) {
     return {
       valid: false,
-      error: 'Account is frozen and cannot process transactions',
-      code: 'ACCOUNT_FROZEN',
+      error: "Account is frozen and cannot process transactions",
+      code: "ACCOUNT_FROZEN",
     };
   }
-  
+
   // For debits, check balance and limits
-  if (type === 'debit') {
+  if (type === "debit") {
     // Check daily limit
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Reset daily spent if it's a new day
     if (!account.dailySpentDate || new Date(account.dailySpentDate) < today) {
       await prisma.account.update({
@@ -63,33 +63,33 @@ async function validateTransaction(
       });
       account.dailySpent = 0;
     }
-    
+
     // Check if transaction would exceed daily limit
     if (account.dailySpent + amount > account.dailyLimit) {
       return {
         valid: false,
         error: `Transaction would exceed daily spending limit of $${(account.dailyLimit / 100).toFixed(2)}`,
-        code: 'DAILY_LIMIT_EXCEEDED',
+        code: "DAILY_LIMIT_EXCEEDED",
       };
     }
-    
+
     // Check balance (with overdraft consideration)
     const config = getSimulationConfig();
-    const effectiveBalance = account.overdraftEnabled 
-      ? account.balance + config.maxOverdraftAmount 
+    const effectiveBalance = account.overdraftEnabled
+      ? account.balance + config.maxOverdraftAmount
       : account.balance;
-    
+
     if (amount > effectiveBalance) {
       return {
         valid: false,
         error: account.overdraftEnabled
           ? `Insufficient funds (including overdraft limit of $${(config.maxOverdraftAmount / 100).toFixed(2)})`
-          : 'Insufficient funds',
-        code: 'INSUFFICIENT_FUNDS',
+          : "Insufficient funds",
+        code: "INSUFFICIENT_FUNDS",
       };
     }
   }
-  
+
   return { valid: true };
 }
 
@@ -97,39 +97,43 @@ async function validateTransaction(
  * Create a new transaction with proper lifecycle handling
  */
 export async function createTransaction(
-  options: CreateTransactionOptions
+  options: CreateTransactionOptions,
 ): Promise<TransactionResult> {
   const config = getSimulationConfig();
-  
+
   try {
     // Get account
     const account = await prisma.account.findUnique({
       where: { id: options.accountId },
     });
-    
+
     if (!account) {
       return {
         success: false,
-        error: 'Account not found',
-        code: 'ACCOUNT_NOT_FOUND',
+        error: "Account not found",
+        code: "ACCOUNT_NOT_FOUND",
       };
     }
-    
+
     // Validate transaction (unless skipped for seeding)
     if (!options.skipValidation) {
-      const validation = await validateTransaction(account, options.type, options.amount);
+      const validation = await validateTransaction(
+        account,
+        options.type,
+        options.amount,
+      );
       if (!validation.valid) {
         return {
           success: false,
-          error: validation.error ?? 'Validation failed',
-          code: validation.code ?? 'VALIDATION_ERROR',
+          error: validation.error ?? "Validation failed",
+          code: validation.code ?? "VALIDATION_ERROR",
         };
       }
     }
-    
+
     // Calculate when transaction should be auto-posted
     const postAt = new Date(Date.now() + config.pendingDurationMs);
-    
+
     // Create transaction in pending state
     const transaction = await prisma.transaction.create({
       data: {
@@ -142,13 +146,13 @@ export async function createTransaction(
         location: options.location ?? null,
         reference: options.reference || generateReference(),
         description: options.description ?? null,
-        status: 'pending',
+        status: "pending",
         postAt,
       },
     });
-    
+
     // Update daily spent for debits
-    if (options.type === 'debit' && !options.skipValidation) {
+    if (options.type === "debit" && !options.skipValidation) {
       await prisma.account.update({
         where: { id: options.accountId },
         data: {
@@ -157,28 +161,29 @@ export async function createTransaction(
         },
       });
     }
-    
+
     // Update balance immediately for pending transactions (holds)
-    const balanceChange = options.type === 'credit' ? options.amount : -options.amount;
+    const balanceChange =
+      options.type === "credit" ? options.amount : -options.amount;
     await prisma.account.update({
       where: { id: options.accountId },
       data: { balance: { increment: balanceChange } },
     });
-    
+
     logger.info(`Created pending transaction ${transaction.id}`, {
       accountId: options.accountId,
       type: options.type,
       amount: options.amount,
       postAt: postAt.toISOString(),
     });
-    
+
     return { success: true, transaction };
   } catch (error) {
-    logger.error('Failed to create transaction', error);
+    logger.error("Failed to create transaction", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      code: 'TRANSACTION_ERROR',
+      error: error instanceof Error ? error.message : "Unknown error",
+      code: "TRANSACTION_ERROR",
     };
   }
 }
@@ -188,66 +193,66 @@ export async function createTransaction(
  */
 export async function postTransaction(
   transactionId: string,
-  finalAmount?: number
+  finalAmount?: number,
 ): Promise<TransactionResult> {
   try {
     const transaction = await prisma.transaction.findUnique({
       where: { id: transactionId },
       include: { account: true },
     });
-    
+
     if (!transaction) {
       return {
         success: false,
-        error: 'Transaction not found',
-        code: 'TRANSACTION_NOT_FOUND',
+        error: "Transaction not found",
+        code: "TRANSACTION_NOT_FOUND",
       };
     }
-    
-    if (transaction.status !== 'pending') {
+
+    if (transaction.status !== "pending") {
       return {
         success: false,
         error: `Transaction is already ${transaction.status}`,
-        code: 'INVALID_STATUS',
+        code: "INVALID_STATUS",
       };
     }
-    
+
     // Handle amount change (gas station style)
-    const amountDifference = finalAmount !== undefined 
-      ? finalAmount - transaction.amount 
-      : 0;
-    
+    const amountDifference =
+      finalAmount !== undefined ? finalAmount - transaction.amount : 0;
+
     // Update balance if amount changed
     if (amountDifference !== 0) {
-      const balanceChange = transaction.type === 'credit' ? amountDifference : -amountDifference;
+      const balanceChange =
+        transaction.type === "credit" ? amountDifference : -amountDifference;
       await prisma.account.update({
         where: { id: transaction.accountId },
         data: { balance: { increment: balanceChange } },
       });
     }
-    
+
     // Update transaction to posted
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        status: 'posted',
+        status: "posted",
         amount: finalAmount ?? transaction.amount,
         postedAt: new Date(),
       },
     });
-    
+
     logger.info(`Posted transaction ${transactionId}`, {
       originalAmount: transaction.amount,
       finalAmount: updatedTransaction.amount,
     });
-    
+
     return { success: true, transaction: updatedTransaction };
   } catch (error) {
-    logger.error('Failed to post transaction', error);
+    logger.error("Failed to post transaction", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      code: 'POST_ERROR',
+      error: error instanceof Error ? error.message : "Unknown error",
+      code: "POST_ERROR",
     };
   }
 }
@@ -257,57 +262,58 @@ export async function postTransaction(
  */
 export async function cancelTransaction(
   transactionId: string,
-  reason?: string
+  reason?: string,
 ): Promise<TransactionResult> {
   try {
     const transaction = await prisma.transaction.findUnique({
       where: { id: transactionId },
       include: { account: true },
     });
-    
+
     if (!transaction) {
       return {
         success: false,
-        error: 'Transaction not found',
-        code: 'TRANSACTION_NOT_FOUND',
+        error: "Transaction not found",
+        code: "TRANSACTION_NOT_FOUND",
       };
     }
-    
-    if (transaction.status !== 'pending') {
+
+    if (transaction.status !== "pending") {
       return {
         success: false,
         error: `Cannot cancel ${transaction.status} transaction`,
-        code: 'INVALID_STATUS',
+        code: "INVALID_STATUS",
       };
     }
-    
+
     // Reverse the balance hold
-    const balanceChange = transaction.type === 'credit' ? -transaction.amount : transaction.amount;
+    const balanceChange =
+      transaction.type === "credit" ? -transaction.amount : transaction.amount;
     await prisma.account.update({
       where: { id: transaction.accountId },
       data: { balance: { increment: balanceChange } },
     });
-    
+
     // Update transaction to canceled
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        status: 'canceled',
-        description: reason 
-          ? `${transaction.description || ''} [Canceled: ${reason}]`.trim()
+        status: "canceled",
+        description: reason
+          ? `${transaction.description || ""} [Canceled: ${reason}]`.trim()
           : transaction.description,
       },
     });
-    
+
     logger.info(`Canceled transaction ${transactionId}`, { reason });
-    
+
     return { success: true, transaction: updatedTransaction };
   } catch (error) {
-    logger.error('Failed to cancel transaction', error);
+    logger.error("Failed to cancel transaction", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      code: 'CANCEL_ERROR',
+      error: error instanceof Error ? error.message : "Unknown error",
+      code: "CANCEL_ERROR",
     };
   }
 }
@@ -322,44 +328,49 @@ export async function processPendingTransactions(): Promise<{
 }> {
   const config = getSimulationConfig();
   const rng = new SeededRandom(Date.now());
-  
+
   // Find all pending transactions ready to post
   const pendingTransactions = await prisma.transaction.findMany({
     where: {
-      status: 'pending',
+      status: "pending",
       postAt: { lte: new Date() },
     },
   });
-  
+
   let posted = 0;
   let canceled = 0;
   let amountChanged = 0;
-  
+
   for (const transaction of pendingTransactions) {
     // Randomly cancel some transactions
     if (rng.next() < config.cancelRate) {
-      await cancelTransaction(transaction.id, 'Merchant canceled');
+      await cancelTransaction(transaction.id, "Merchant canceled");
       canceled++;
       continue;
     }
-    
+
     // Randomly change amount for some transactions (gas station style)
     let finalAmount: number | undefined;
     if (rng.next() < config.amountChangeRate) {
-      const changePercent = (rng.next() * 2 - 1) * config.maxAmountChangePercent / 100;
+      const changePercent =
+        ((rng.next() * 2 - 1) * config.maxAmountChangePercent) / 100;
       finalAmount = Math.round(transaction.amount * (1 + changePercent));
       finalAmount = Math.max(100, finalAmount); // Minimum $1
       amountChanged++;
     }
-    
+
     await postTransaction(transaction.id, finalAmount);
     posted++;
   }
-  
+
   if (posted > 0 || canceled > 0) {
-    logger.info('Processed pending transactions', { posted, canceled, amountChanged });
+    logger.info("Processed pending transactions", {
+      posted,
+      canceled,
+      amountChanged,
+    });
   }
-  
+
   return { posted, canceled, amountChanged };
 }
 
@@ -382,20 +393,24 @@ export async function getLifecycleStats(): Promise<{
   avgPendingAgeMs: number;
 }> {
   const [pending, posted, canceled] = await Promise.all([
-    prisma.transaction.count({ where: { status: 'pending' } }),
-    prisma.transaction.count({ where: { status: 'posted' } }),
-    prisma.transaction.count({ where: { status: 'canceled' } }),
+    prisma.transaction.count({ where: { status: "pending" } }),
+    prisma.transaction.count({ where: { status: "posted" } }),
+    prisma.transaction.count({ where: { status: "canceled" } }),
   ]);
-  
+
   // Calculate average age of pending transactions
   const pendingTransactions = await prisma.transaction.findMany({
-    where: { status: 'pending' },
+    where: { status: "pending" },
     select: { createdAt: true },
   });
-  
-  const avgPendingAgeMs = pendingTransactions.length > 0
-    ? pendingTransactions.reduce((sum, t) => sum + (Date.now() - t.createdAt.getTime()), 0) / pendingTransactions.length
-    : 0;
-  
+
+  const avgPendingAgeMs =
+    pendingTransactions.length > 0
+      ? pendingTransactions.reduce(
+          (sum, t) => sum + (Date.now() - t.createdAt.getTime()),
+          0,
+        ) / pendingTransactions.length
+      : 0;
+
   return { pending, posted, canceled, avgPendingAgeMs };
 }

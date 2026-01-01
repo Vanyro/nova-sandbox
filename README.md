@@ -12,12 +12,14 @@ A production-ready banking sandbox that simulates a complete banking system with
 ## ✨ Features
 
 ### Core Banking
+
 - 🏦 **Account Management** - Multi-type accounts (checking, savings, investment)
 - 💳 **Transaction Processing** - Full lifecycle (pending → posted/canceled)
 - 📊 **Analytics & Reporting** - Real-time statistics and insights
 - 🎭 **Persona-Based Simulation** - 6 realistic user types (spender, saver, investor, etc.)
 
 ### Phase 4: Advanced Banking Engines
+
 - 🕵️ **Fraud Detection** - Real-time pattern analysis (velocity, geolocation, duplicates)
 - ⚠️ **Risk Scoring** - Automatic user risk assessment (low → critical)
 - 💰 **Loan Management** - Full loan lifecycle with automatic payments and defaults
@@ -25,6 +27,7 @@ A production-ready banking sandbox that simulates a complete banking system with
 - ⚖️ **Compliance Monitoring** - KYC/AML/Sanctions screening
 
 ### Developer Tools
+
 - 💥 **Chaos Engineering** - Test failure modes (latency, flaky, maintenance)
 - 🎮 **Simulation Control** - Automatic or manual transaction generation
 - 📚 **OpenAPI/Swagger** - Interactive API documentation
@@ -176,14 +179,16 @@ LOG_LEVEL=debug
 ## 📊 Database Schema
 
 ### Core Models (Phase 1-3)
+
 - **User** - Customer profiles with personas
 - **Account** - Bank accounts (checking/savings/investment)
 - **Transaction** - Transaction history with full lifecycle
 - **SimulationState** - Sandbox control state
 
 ### Phase 4 Models
+
 - **FraudAlert** - Detected fraud patterns
-- **RiskEvent** - Risk assessment events  
+- **RiskEvent** - Risk assessment events
 - **UserRiskScore** - Real-time risk scores
 - **Loan** - Loan applications and payments
 - **Portfolio** - Investment portfolios
@@ -195,6 +200,7 @@ LOG_LEVEL=debug
 ## 🎯 API Endpoints
 
 ### Core Banking
+
 - `GET /accounts` - List accounts
 - `GET /accounts/:id` - Get account details
 - `GET /accounts/:id/transactions` - Account transactions
@@ -202,12 +208,14 @@ LOG_LEVEL=debug
 - `GET /stats` - Statistics and analytics
 
 ### Simulation Control
+
 - `POST /sandbox/simulation/start` - Start simulation
 - `POST /sandbox/simulation/stop` - Stop simulation
 - `GET /sandbox/simulation/status` - Check status
 - `POST /sandbox/simulation/trigger` - Manual trigger
 
 ### Phase 4 Engines
+
 - `GET /fraud` - Fraud alerts summary
 - `GET /risk` - Risk events and scores
 - `GET /loans` - Loan portfolio
@@ -216,6 +224,7 @@ LOG_LEVEL=debug
 - `GET /compliance` - Compliance status
 
 ### Chaos Engineering
+
 - `PATCH /sandbox/mode` - Set chaos mode
 - `POST /sandbox/mode/reset` - Reset to normal
 
@@ -262,29 +271,29 @@ npm run simulation:start # Start simulation directly
 
 ```typescript
 // sandboxClient.ts
-const SANDBOX_URL = 'http://localhost:4000';
+const SANDBOX_URL = "http://localhost:4000";
 
 export const sandboxApi = {
   async getAccounts() {
     const res = await fetch(`${SANDBOX_URL}/accounts`);
     return res.json();
   },
-  
+
   async createTransaction(data) {
     const res = await fetch(`${SANDBOX_URL}/transactions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     return res.json();
   },
-  
+
   async startSimulation() {
     const res = await fetch(`${SANDBOX_URL}/sandbox/simulation/start`, {
-      method: 'POST'
+      method: "POST",
     });
     return res.json();
-  }
+  },
 };
 ```
 
@@ -313,6 +322,7 @@ The sandbox includes 6 realistic user personas:
 ## 📈 Simulation Metrics
 
 When simulation is running:
+
 - **Transaction Generation** - Realistic banking patterns
 - **Fraud Detection** - ~5-10% of transactions flagged
 - **Risk Scoring** - Automatic user risk level updates
@@ -323,6 +333,7 @@ When simulation is running:
 ## 🚀 CI/CD Pipeline
 
 Automated GitHub Actions workflow:
+
 - ✅ Lint & Type Check
 - ✅ Run Tests
 - ✅ Build Application
@@ -337,6 +348,7 @@ MIT © Nova Fintech
 ## 🙏 Acknowledgments
 
 Built with:
+
 - [Fastify](https://www.fastify.io/) - Web framework
 - [Prisma](https://www.prisma.io/) - Database ORM
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
@@ -345,14 +357,15 @@ Built with:
 ---
 
 **Ready to test your banking app?** Start the sandbox and explore the API at http://localhost:4000/docs 🚀
-   npm run prisma:generate
-   npm run prisma:migrate
-   ```
+npm run prisma:generate
+npm run prisma:migrate
+
+````
 
 3. **Start development server**:
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+````
 
 4. **Access the API**:
    - Health check: http://localhost:4000/health
@@ -360,6 +373,7 @@ Built with:
 ### Docker Development
 
 1. **Build and start**:
+
    ```bash
    docker-compose up --build
    ```
@@ -389,6 +403,7 @@ DATABASE_URL="file:./prisma/dev.db"
 ## API Endpoints
 
 ### Health Check
+
 ```
 GET /health
 Response: { "status": "ok" }

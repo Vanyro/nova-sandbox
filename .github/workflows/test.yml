@@ -51,6 +51,8 @@ jobs:
 
       - name: Seed database
         run: npm run seed
+        env:
+          DATABASE_URL: file:./prisma/db/sandbox.db
 
       - name: Start server in background
         run: |
@@ -68,9 +70,10 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && hashFiles('coverage/**') != '' || hashFiles('test-results/**') != ''
         with:
           name: test-results
           path: |
             coverage/
             test-results/
+          if-no-files-found: ignore

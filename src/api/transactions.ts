@@ -1,5 +1,5 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -9,9 +9,9 @@ interface TransactionQueryParams {
   accountId?: string;
   persona?: string;
   category?: string;
-  type?: 'credit' | 'debit';
-  sortBy?: 'createdAt' | 'amount';
-  sortOrder?: 'asc' | 'desc';
+  type?: "credit" | "debit";
+  sortBy?: "createdAt" | "amount";
+  sortOrder?: "asc" | "desc";
   dateFrom?: string;
   dateTo?: string;
   minAmount?: number;
@@ -21,10 +21,10 @@ interface TransactionQueryParams {
 export async function transactionRoutes(fastify: FastifyInstance) {
   // GET /transactions - List transactions with extensive filtering
   fastify.get(
-    '/transactions',
+    "/transactions",
     async (
       request: FastifyRequest<{ Querystring: TransactionQueryParams }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const {
@@ -32,16 +32,20 @@ export async function transactionRoutes(fastify: FastifyInstance) {
           persona,
           category,
           type,
-          sortBy = 'createdAt',
-          sortOrder = 'desc',
+          sortBy = "createdAt",
+          sortOrder = "desc",
           dateFrom,
           dateTo,
         } = request.query;
 
         const page = Number(request.query.page) || 1;
         const limit = Number(request.query.limit) || 50;
-        const minAmount = request.query.minAmount ? Number(request.query.minAmount) : undefined;
-        const maxAmount = request.query.maxAmount ? Number(request.query.maxAmount) : undefined;
+        const minAmount = request.query.minAmount
+          ? Number(request.query.minAmount)
+          : undefined;
+        const maxAmount = request.query.maxAmount
+          ? Number(request.query.maxAmount)
+          : undefined;
 
         // Build where clause
         const where: any = {};
@@ -114,9 +118,8 @@ export async function transactionRoutes(fastify: FastifyInstance) {
         const formattedTransactions = transactions.map((txn) => ({
           ...txn,
           amountFormatted: `$${(txn.amount / 100).toFixed(2)}`,
-          signedAmount:
-            txn.type === 'credit' ? txn.amount : -txn.amount,
-          signedAmountFormatted: `${txn.type === 'credit' ? '+' : '-'}$${(txn.amount / 100).toFixed(2)}`,
+          signedAmount: txn.type === "credit" ? txn.amount : -txn.amount,
+          signedAmountFormatted: `${txn.type === "credit" ? "+" : "-"}$${(txn.amount / 100).toFixed(2)}`,
         }));
 
         reply.send({
@@ -140,17 +143,17 @@ export async function transactionRoutes(fastify: FastifyInstance) {
         });
       } catch (error) {
         fastify.log.error(error);
-        reply.status(500).send({ error: 'Failed to fetch transactions' });
+        reply.status(500).send({ error: "Failed to fetch transactions" });
       }
-    }
+    },
   );
 
   // GET /transactions/:id - Get single transaction
   fastify.get(
-    '/transactions/:id',
+    "/transactions/:id",
     async (
       request: FastifyRequest<{ Params: { id: string } }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const { id } = request.params;
@@ -173,30 +176,30 @@ export async function transactionRoutes(fastify: FastifyInstance) {
         });
 
         if (!transaction) {
-          return reply.status(404).send({ error: 'Transaction not found' });
+          return reply.status(404).send({ error: "Transaction not found" });
         }
 
         reply.send({
           ...transaction,
           amountFormatted: `$${(transaction.amount / 100).toFixed(2)}`,
           signedAmount:
-            transaction.type === 'credit'
+            transaction.type === "credit"
               ? transaction.amount
               : -transaction.amount,
         });
       } catch (error) {
         fastify.log.error(error);
-        reply.status(500).send({ error: 'Failed to fetch transaction' });
+        reply.status(500).send({ error: "Failed to fetch transaction" });
       }
-    }
+    },
   );
 
   // GET /transactions/categories - Get list of all categories
-  fastify.get('/transactions/categories', async (_request, reply) => {
+  fastify.get("/transactions/categories", async (_request, reply) => {
     try {
       const categories = await prisma.transaction.findMany({
         select: { category: true },
-        distinct: ['category'],
+        distinct: ["category"],
         where: {
           category: {
             not: null,
@@ -212,7 +215,7 @@ export async function transactionRoutes(fastify: FastifyInstance) {
       reply.send({ categories: categoryList });
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch categories' });
+      reply.status(500).send({ error: "Failed to fetch categories" });
     }
   });
 }

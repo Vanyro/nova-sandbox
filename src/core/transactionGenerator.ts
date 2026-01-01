@@ -1,14 +1,14 @@
-import type { PersonaConfig, Category } from './personas.js';
-import { SeededRandom } from './random.js';
+import type { PersonaConfig, Category } from "./personas.js";
+import { SeededRandom } from "./random.js";
 import {
   getMerchantForCategory,
   getRandomCity,
   generateTransactionReference,
   generateDescription,
-} from './merchants.js';
+} from "./merchants.js";
 
 export interface GeneratedTransaction {
-  type: 'credit' | 'debit';
+  type: "credit" | "debit";
   amount: number;
   category: Category;
   merchant: string;
@@ -41,14 +41,14 @@ export class TransactionGenerator {
     const lastDayOfMonth = new Date(
       date.getFullYear(),
       date.getMonth() + 1,
-      0
+      0,
     ).getDate();
 
-    if (frequency === 'monthly') {
+    if (frequency === "monthly") {
       return dayOfMonth === lastDayOfMonth;
-    } else if (frequency === 'biweekly') {
+    } else if (frequency === "biweekly") {
       return dayOfMonth === 15 || dayOfMonth === lastDayOfMonth;
-    } else if (frequency === 'weekly') {
+    } else if (frequency === "weekly") {
       return date.getDay() === 5; // Friday
     }
     return false;
@@ -59,16 +59,16 @@ export class TransactionGenerator {
    */
   generateIncome(
     persona: PersonaConfig,
-    date: Date
+    date: Date,
   ): GeneratedTransaction | null {
     const { incomePattern } = persona;
 
     // Check if this is an income day
     let shouldGenerate = false;
 
-    if (incomePattern.type === 'recurring') {
+    if (incomePattern.type === "recurring") {
       shouldGenerate = this.isPayday(date, incomePattern.frequency);
-    } else if (incomePattern.type === 'sporadic') {
+    } else if (incomePattern.type === "sporadic") {
       // Sporadic income: 10-20% chance on non-weekend days
       const chance = this.isWeekend(date) ? 0.05 : 0.15;
       shouldGenerate = this.rng.nextBoolean(chance);
@@ -76,21 +76,21 @@ export class TransactionGenerator {
 
     if (!shouldGenerate) return null;
 
-    const category: Category = 'salary';
+    const category: Category = "salary";
     const amount = this.rng.nextWithVariance(
       incomePattern.baseAmount,
-      incomePattern.variance
+      incomePattern.variance,
     );
     const merchant = getMerchantForCategory(category, () => this.rng.next());
 
     return {
-      type: 'credit',
+      type: "credit",
       amount,
       category,
       merchant,
       location: getRandomCity(() => this.rng.next()),
       reference: generateTransactionReference(() => this.rng.next()),
-      description: generateDescription('credit', category, merchant),
+      description: generateDescription("credit", category, merchant),
       createdAt: date,
     };
   }
@@ -101,7 +101,7 @@ export class TransactionGenerator {
   generateExpenses(
     persona: PersonaConfig,
     date: Date,
-    currentBalance: number
+    currentBalance: number,
   ): GeneratedTransaction[] {
     const transactions: GeneratedTransaction[] = [];
 
@@ -112,15 +112,13 @@ export class TransactionGenerator {
 
     // Calculate number of transactions for this day
     const weeklyFreq =
-      (persona.transactionFrequency.min +
-        persona.transactionFrequency.max) /
-      2;
+      (persona.transactionFrequency.min + persona.transactionFrequency.max) / 2;
     const dailyFreq = (weeklyFreq / 7) * weekendMultiplier;
 
     // Use Poisson-like distribution
     const numTransactions = Math.max(
       0,
-      Math.round(dailyFreq + (this.rng.next() - 0.5) * 2)
+      Math.round(dailyFreq + (this.rng.next() - 0.5) * 2),
     );
 
     for (let i = 0; i < numTransactions; i++) {
@@ -131,7 +129,7 @@ export class TransactionGenerator {
       // Generate amount
       let amount = this.rng.nextWithVariance(
         persona.transactionAmount.average,
-        persona.transactionAmount.variance
+        persona.transactionAmount.variance,
       );
 
       // Ensure minimum amount
@@ -152,13 +150,13 @@ export class TransactionGenerator {
       transactionDate.setHours(hours, minutes, 0, 0);
 
       transactions.push({
-        type: 'debit',
+        type: "debit",
         amount,
         category,
         merchant,
         location: getRandomCity(() => this.rng.next()),
         reference: generateTransactionReference(() => this.rng.next()),
-        description: generateDescription('debit', category, merchant),
+        description: generateDescription("debit", category, merchant),
         createdAt: transactionDate,
       });
 
@@ -176,7 +174,7 @@ export class TransactionGenerator {
     persona: PersonaConfig,
     startDate: Date,
     endDate: Date,
-    initialBalance: number = 0
+    initialBalance: number = 0,
   ): GeneratedTransaction[] {
     const allTransactions: GeneratedTransaction[] = [];
     let currentBalance = initialBalance;
@@ -195,7 +193,7 @@ export class TransactionGenerator {
       const expenses = this.generateExpenses(
         persona,
         new Date(currentDate),
-        currentBalance
+        currentBalance,
       );
       allTransactions.push(...expenses);
 

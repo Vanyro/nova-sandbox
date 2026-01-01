@@ -1,6 +1,6 @@
-import type { PersonaType } from './personas.js';
+import type { PersonaType } from "./personas.js";
 
-export type SeedMode = 'light' | 'realistic' | 'stress';
+export type SeedMode = "light" | "realistic" | "stress";
 
 export interface SeedConfig {
   seedKey: string;
@@ -37,17 +37,18 @@ export function parseSeedConfig(): SeedConfig {
     const arg = args[i];
     if (!arg) continue;
 
-    if (arg.startsWith('--months=')) {
-      const value = arg.split('=')[1];
+    if (arg.startsWith("--months=")) {
+      const value = arg.split("=")[1];
       if (value) config.months = parseInt(value, 10);
-    } else if (arg.startsWith('--personas=')) {
-      const personasStr = arg.split('=')[1];
-      if (personasStr) config.personas = personasStr.split(',') as PersonaType[];
-    } else if (arg.startsWith('--seedKey=')) {
-      const value = arg.split('=')[1];
+    } else if (arg.startsWith("--personas=")) {
+      const personasStr = arg.split("=")[1];
+      if (personasStr)
+        config.personas = personasStr.split(",") as PersonaType[];
+    } else if (arg.startsWith("--seedKey=")) {
+      const value = arg.split("=")[1];
       if (value) config.seedKey = value;
-    } else if (arg.startsWith('--mode=')) {
-      const value = arg.split('=')[1];
+    } else if (arg.startsWith("--mode=")) {
+      const value = arg.split("=")[1];
       if (value) config.mode = value as SeedMode;
     }
   }
@@ -55,19 +56,18 @@ export function parseSeedConfig(): SeedConfig {
   // Fallback to environment variables or defaults
   const mode = (config.mode ||
     process.env.SEED_MODE ||
-    'realistic') as SeedMode;
+    "realistic") as SeedMode;
 
   const defaultConfig = SEED_MODE_CONFIGS[mode];
 
   return {
-    seedKey: config.seedKey || process.env.SEED_KEY || 'default-seed-2024',
-    months: config.months || parseInt(process.env.SEED_MONTHS || '12', 10),
-    personas:
-      config.personas ||
-      (process.env.SEED_PERSONAS?.split(',') as PersonaType[]) || [
-        'student',
-        'investor',
-        'spender',
+    seedKey: config.seedKey || process.env.SEED_KEY || "default-seed-2024",
+    months: config.months || parseInt(process.env.SEED_MONTHS || "12", 10),
+    personas: config.personas ||
+      (process.env.SEED_PERSONAS?.split(",") as PersonaType[]) || [
+        "student",
+        "investor",
+        "spender",
       ],
     mode,
     usersPerPersona: defaultConfig.usersPerPersona,

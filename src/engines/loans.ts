@@ -4,57 +4,63 @@
  * Supports student loans, consumer loans, business loans, and emergency loans
  */
 
-import { PrismaClient } from '@prisma/client';
-import { createLogger } from '../core/logger.js';
-import { logRiskEvent } from './risk.js';
+import { PrismaClient } from "@prisma/client";
+import { createLogger } from "../core/logger.js";
+import { logRiskEvent } from "./risk.js";
 
 const prisma = new PrismaClient();
-const logger = createLogger('LoansEngine');
+const logger = createLogger("LoansEngine");
 
-export type LoanType = 'student' | 'consumer' | 'business' | 'emergency';
-export type LoanStatus = 'pending' | 'approved' | 'active' | 'paid' | 'defaulted' | 'rejected';
+export type LoanType = "student" | "consumer" | "business" | "emergency";
+export type LoanStatus =
+  | "pending"
+  | "approved"
+  | "active"
+  | "paid"
+  | "defaulted"
+  | "rejected";
 
 interface LoanConfig {
-  minAmount: number;      // Minimum loan amount in cents
-  maxAmount: number;      // Maximum loan amount in cents
+  minAmount: number; // Minimum loan amount in cents
+  maxAmount: number; // Maximum loan amount in cents
   minTermMonths: number;
   maxTermMonths: number;
   baseInterestRate: number; // Annual rate
-  minCreditScore: number;   // Minimum risk score (inverted: lower is better)
+  minCreditScore: number; // Minimum risk score (inverted: lower is better)
 }
 
 const LOAN_CONFIGS: Record<LoanType, LoanConfig> = {
   student: {
-    minAmount: 100000,      // $1,000
-    maxAmount: 5000000,     // $50,000
+    minAmount: 100000, // $1,000
+    maxAmount: 5000000, // $50,000
     minTermMonths: 12,
     maxTermMonths: 120,
     baseInterestRate: 0.045, // 4.5%
-    minCreditScore: 70,     // Max risk score allowed
+    minCreditScore: 70, // Max risk score allowed
   },
   consumer: {
-    minAmount: 50000,       // $500
-    maxAmount: 2500000,     // $25,000
+    minAmount: 50000, // $500
+    maxAmount: 2500000, // $25,000
     minTermMonths: 6,
     maxTermMonths: 60,
     baseInterestRate: 0.085, // 8.5%
     minCreditScore: 60,
   },
   business: {
-    minAmount: 500000,      // $5,000
-    maxAmount: 25000000,    // $250,000
+    minAmount: 500000, // $5,000
+    maxAmount: 25000000, // $250,000
     minTermMonths: 12,
     maxTermMonths: 84,
     baseInterestRate: 0.065, // 6.5%
     minCreditScore: 50,
   },
   emergency: {
-    minAmount: 10000,       // $100
-    maxAmount: 200000,      // $2,000
+    minAmount: 10000, // $100
+    maxAmount: 200000, // $2,000
     minTermMonths: 1,
     maxTermMonths: 12,
-    baseInterestRate: 0.18,  // 18% (high for emergency)
-    minCreditScore: 80,     // More lenient
+    baseInterestRate: 0.18, // 18% (high for emergency)
+    minCreditScore: 80, // More lenient
   },
 };
 
@@ -82,7 +88,7 @@ interface LoanApplicationResult {
 export async function checkLoanEligibility(
   userId: string,
   loanType: LoanType,
-  requestedAmount?: number
+  requestedAmount?: number,
 ): Promise<EligibilityResult> {
   const config = LOAN_CONFIGS[loanType];
   const reasons: string[] = [];
@@ -95,7 +101,7 @@ export async function checkLoanEligibility(
       accounts: true,
       loans: {
         where: {
-          status: { in: ['active', 'pending'] },
+          status: { in: ["active", "pending"] },
         },
       },
     },
@@ -109,44 +115,54 @@ export async function checkLoanEligibility(
       interestRate: 0,
       suggestedTermMonths: 0,
       monthlyPayment: 0,
-      reasons: ['User not found'],
+      reasons: ["User not found"],
       warnings: [],
     };
   }
 
   // Check risk score
   if (user.riskScore > config.minCreditScore) {
-    reasons.push(`Risk score (${user.riskScore}) exceeds maximum allowed (${config.minCreditScore})`);
+    reasons.push(
+      `Risk score (${user.riskScore}) exceeds maximum allowed (${config.minCreditScore})`,
+    );
   }
 
   // Check KYC status
-  if (user.kycStatus !== 'verified') {
-    reasons.push(`KYC verification required (current status: ${user.kycStatus})`);
+  if (user.kycStatus !== "verified") {
+    reasons.push(
+      `KYC verification required (current status: ${user.kycStatus})`,
+    );
   }
 
   // Check AML status
-  if (user.amlStatus !== 'clear') {
+  if (user.amlStatus !== "clear") {
     reasons.push(`AML status is ${user.amlStatus}`);
   }
 
   // Check existing loan burden
-  const existingLoanTotal = user.loans.reduce((sum, l) => sum + l.remainingAmount, 0);
-  const totalBalance = user.accounts.reduce((sum, a) => sum + Math.max(0, a.balance), 0);
-  
+  const existingLoanTotal = user.loans.reduce(
+    (sum, l) => sum + l.remainingAmount,
+    0,
+  );
+  const totalBalance = user.accounts.reduce(
+    (sum, a) => sum + Math.max(0, a.balance),
+    0,
+  );
+
   if (existingLoanTotal > totalBalance * 3) {
-    reasons.push('Existing loan burden is too high');
+    reasons.push("Existing loan burden is too high");
   }
 
   // Calculate maximum loan amount based on financial profile
   let maxAmount = config.maxAmount;
-  
+
   // Reduce max based on risk score
-  const riskMultiplier = Math.max(0.3, 1 - (user.riskScore / 100));
+  const riskMultiplier = Math.max(0.3, 1 - user.riskScore / 100);
   maxAmount = Math.floor(maxAmount * riskMultiplier);
-  
+
   // Reduce based on existing loans
   maxAmount = Math.max(config.minAmount, maxAmount - existingLoanTotal);
-  
+
   // Cap at configured maximum
   maxAmount = Math.min(maxAmount, config.maxAmount);
 
@@ -157,26 +173,35 @@ export async function checkLoanEligibility(
   // Determine suggested term
   const suggestedTermMonths = Math.min(
     config.maxTermMonths,
-    Math.max(config.minTermMonths, Math.ceil((requestedAmount || maxAmount) / 50000) * 12)
+    Math.max(
+      config.minTermMonths,
+      Math.ceil((requestedAmount || maxAmount) / 50000) * 12,
+    ),
   );
 
   // Calculate suggested amount
-  const suggestedAmount = requestedAmount 
+  const suggestedAmount = requestedAmount
     ? Math.min(requestedAmount, maxAmount)
     : Math.min(maxAmount, Math.floor(totalBalance * 0.5));
 
   // Calculate monthly payment
-  const monthlyPayment = calculateMonthlyPayment(suggestedAmount, interestRate, suggestedTermMonths);
+  const monthlyPayment = calculateMonthlyPayment(
+    suggestedAmount,
+    interestRate,
+    suggestedTermMonths,
+  );
 
   // Add warnings
   if (user.riskScore > 40) {
-    warnings.push('Higher interest rate due to elevated risk profile');
+    warnings.push("Higher interest rate due to elevated risk profile");
   }
   if (existingLoanTotal > 0) {
-    warnings.push(`Existing loan balance of $${(existingLoanTotal / 100).toFixed(2)} will affect approval`);
+    warnings.push(
+      `Existing loan balance of $${(existingLoanTotal / 100).toFixed(2)} will affect approval`,
+    );
   }
-  if (user.persona === 'riskLover') {
-    warnings.push('Your spending pattern suggests higher risk profile');
+  if (user.persona === "riskLover") {
+    warnings.push("Your spending pattern suggests higher risk profile");
   }
 
   const eligible = reasons.length === 0 && maxAmount >= config.minAmount;
@@ -201,7 +226,7 @@ export async function applyForLoan(
   accountId: string,
   loanType: LoanType,
   amount: number,
-  termMonths: number
+  termMonths: number,
 ): Promise<LoanApplicationResult> {
   const config = LOAN_CONFIGS[loanType];
 
@@ -226,13 +251,17 @@ export async function applyForLoan(
   if (!eligibility.eligible) {
     return {
       success: false,
-      error: `Loan application denied: ${eligibility.reasons.join('; ')}`,
+      error: `Loan application denied: ${eligibility.reasons.join("; ")}`,
       eligibility,
     };
   }
 
   // Calculate monthly payment
-  const monthlyPayment = calculateMonthlyPayment(amount, eligibility.interestRate, termMonths);
+  const monthlyPayment = calculateMonthlyPayment(
+    amount,
+    eligibility.interestRate,
+    termMonths,
+  );
 
   // Create the loan
   const loan = await prisma.loan.create({
@@ -240,7 +269,7 @@ export async function applyForLoan(
       userId,
       accountId,
       type: loanType,
-      status: 'pending',
+      status: "pending",
       principalAmount: amount,
       remainingAmount: amount,
       interestRate: eligibility.interestRate,
@@ -268,24 +297,26 @@ export async function applyForLoan(
 /**
  * Approve a pending loan
  */
-export async function approveLoan(loanId: string): Promise<LoanApplicationResult> {
+export async function approveLoan(
+  loanId: string,
+): Promise<LoanApplicationResult> {
   const loan = await prisma.loan.findUnique({
     where: { id: loanId },
     include: { account: true },
   });
 
   if (!loan) {
-    return { success: false, error: 'Loan not found' };
+    return { success: false, error: "Loan not found" };
   }
 
-  if (loan.status !== 'pending') {
+  if (loan.status !== "pending") {
     return { success: false, error: `Loan is already ${loan.status}` };
   }
 
   const startDate = new Date();
   const endDate = new Date();
   endDate.setMonth(endDate.getMonth() + loan.termMonths);
-  
+
   const nextPaymentDate = new Date();
   nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
 
@@ -293,7 +324,7 @@ export async function approveLoan(loanId: string): Promise<LoanApplicationResult
   const updatedLoan = await prisma.loan.update({
     where: { id: loanId },
     data: {
-      status: 'active',
+      status: "active",
       approvedAt: new Date(),
       startDate,
       endDate,
@@ -313,11 +344,11 @@ export async function approveLoan(loanId: string): Promise<LoanApplicationResult
   await prisma.transaction.create({
     data: {
       accountId: loan.accountId,
-      type: 'credit',
+      type: "credit",
       amount: loan.principalAmount,
-      category: 'loan_disbursement',
+      category: "loan_disbursement",
       description: `${loan.type} loan disbursement`,
-      status: 'posted',
+      status: "posted",
       postedAt: new Date(),
     },
   });
@@ -333,21 +364,24 @@ export async function approveLoan(loanId: string): Promise<LoanApplicationResult
 /**
  * Reject a pending loan
  */
-export async function rejectLoan(loanId: string, reason: string): Promise<LoanApplicationResult> {
+export async function rejectLoan(
+  loanId: string,
+  reason: string,
+): Promise<LoanApplicationResult> {
   const loan = await prisma.loan.findUnique({ where: { id: loanId } });
 
   if (!loan) {
-    return { success: false, error: 'Loan not found' };
+    return { success: false, error: "Loan not found" };
   }
 
-  if (loan.status !== 'pending') {
+  if (loan.status !== "pending") {
     return { success: false, error: `Loan is already ${loan.status}` };
   }
 
   const updatedLoan = await prisma.loan.update({
     where: { id: loanId },
     data: {
-      status: 'rejected',
+      status: "rejected",
       rejectedAt: new Date(),
       rejectionReason: reason,
     },
@@ -363,7 +397,7 @@ export async function rejectLoan(loanId: string, reason: string): Promise<LoanAp
  */
 export async function processLoanPayment(
   loanId: string,
-  paymentAmount?: number
+  paymentAmount?: number,
 ): Promise<{ success: boolean; payment?: any; error?: string }> {
   const loan = await prisma.loan.findUnique({
     where: { id: loanId },
@@ -371,10 +405,10 @@ export async function processLoanPayment(
   });
 
   if (!loan) {
-    return { success: false, error: 'Loan not found' };
+    return { success: false, error: "Loan not found" };
   }
 
-  if (loan.status !== 'active') {
+  if (loan.status !== "active") {
     return { success: false, error: `Loan is ${loan.status}` };
   }
 
@@ -390,10 +424,10 @@ export async function processLoanPayment(
 
     await logRiskEvent(
       loan.userId,
-      'payment_missed',
-      'high',
+      "payment_missed",
+      "high",
       `Missed loan payment of $${(amount / 100).toFixed(2)} due to insufficient funds`,
-      { loanId, amount }
+      { loanId, amount },
     );
 
     // Check for default (3+ missed payments)
@@ -401,11 +435,13 @@ export async function processLoanPayment(
       await defaultLoan(loanId);
     }
 
-    return { success: false, error: 'Insufficient funds for loan payment' };
+    return { success: false, error: "Insufficient funds for loan payment" };
   }
 
   // Calculate interest and principal portions
-  const monthlyInterest = Math.floor(loan.remainingAmount * (loan.interestRate / 12));
+  const monthlyInterest = Math.floor(
+    loan.remainingAmount * (loan.interestRate / 12),
+  );
   const principalPayment = Math.max(0, amount - monthlyInterest);
 
   // Deduct from account
@@ -421,7 +457,7 @@ export async function processLoanPayment(
       amount,
       principal: principalPayment,
       interest: monthlyInterest,
-      status: 'completed',
+      status: "completed",
     },
   });
 
@@ -429,21 +465,24 @@ export async function processLoanPayment(
   await prisma.transaction.create({
     data: {
       accountId: loan.accountId,
-      type: 'debit',
+      type: "debit",
       amount,
-      category: 'loan_payment',
+      category: "loan_payment",
       description: `${loan.type} loan payment`,
-      status: 'posted',
+      status: "posted",
       postedAt: new Date(),
     },
   });
 
   // Update loan
-  const newRemainingAmount = Math.max(0, loan.remainingAmount - principalPayment);
+  const newRemainingAmount = Math.max(
+    0,
+    loan.remainingAmount - principalPayment,
+  );
   const nextPaymentDate = new Date();
   nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
 
-  const loanStatus = newRemainingAmount <= 0 ? 'paid' : 'active';
+  const loanStatus = newRemainingAmount <= 0 ? "paid" : "active";
 
   await prisma.loan.update({
     where: { id: loanId },
@@ -452,7 +491,7 @@ export async function processLoanPayment(
       paymentsMade: { increment: 1 },
       lastPaymentDate: new Date(),
       lastPaymentAmount: amount,
-      nextPaymentDate: loanStatus === 'active' ? nextPaymentDate : null,
+      nextPaymentDate: loanStatus === "active" ? nextPaymentDate : null,
       status: loanStatus,
     },
   });
@@ -477,17 +516,17 @@ async function defaultLoan(loanId: string): Promise<void> {
   await prisma.loan.update({
     where: { id: loanId },
     data: {
-      status: 'defaulted',
+      status: "defaulted",
       defaultedAt: new Date(),
     },
   });
 
   await logRiskEvent(
     loan.userId,
-    'payment_missed',
-    'critical',
+    "payment_missed",
+    "critical",
     `Loan defaulted after ${loan.paymentsMissed + 1} missed payments`,
-    { loanId, remainingAmount: loan.remainingAmount }
+    { loanId, remainingAmount: loan.remainingAmount },
   );
 
   logger.warn(`Loan defaulted`, { loanId, userId: loan.userId });
@@ -503,7 +542,7 @@ export async function processDueLoanPayments(): Promise<{
 }> {
   const dueLoans = await prisma.loan.findMany({
     where: {
-      status: 'active',
+      status: "active",
       nextPaymentDate: { lte: new Date() },
     },
   });
@@ -520,7 +559,11 @@ export async function processDueLoanPayments(): Promise<{
     }
   }
 
-  logger.info(`Processed due loan payments`, { total: dueLoans.length, successful, failed });
+  logger.info(`Processed due loan payments`, {
+    total: dueLoans.length,
+    successful,
+    failed,
+  });
 
   return { processed: dueLoans.length, successful, failed };
 }
@@ -530,7 +573,7 @@ export async function processDueLoanPayments(): Promise<{
  */
 export async function getUserLoans(
   userId: string,
-  options?: { status?: LoanStatus; type?: LoanType }
+  options?: { status?: LoanStatus; type?: LoanType },
 ): Promise<any[]> {
   const where: any = { userId };
   if (options?.status) where.status = options.status;
@@ -540,11 +583,11 @@ export async function getUserLoans(
     where,
     include: {
       payments: {
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 5,
       },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
   });
 }
 
@@ -568,7 +611,7 @@ export async function getLoanSummary(): Promise<{
   let totalRemaining = 0;
   let defaultedCount = 0;
 
-  loans.forEach(loan => {
+  loans.forEach((loan) => {
     // By type
     if (!byType[loan.type]) {
       byType[loan.type] = { count: 0, totalAmount: 0 };
@@ -580,25 +623,25 @@ export async function getLoanSummary(): Promise<{
     byStatus[loan.status] = (byStatus[loan.status] || 0) + 1;
 
     // Totals
-    if (loan.status !== 'pending' && loan.status !== 'rejected') {
+    if (loan.status !== "pending" && loan.status !== "rejected") {
       totalDisbursed += loan.principalAmount;
     }
-    if (loan.status === 'active') {
+    if (loan.status === "active") {
       totalRemaining += loan.remainingAmount;
     }
-    if (loan.status === 'defaulted') {
+    if (loan.status === "defaulted") {
       defaultedCount++;
     }
   });
 
-  const completedLoans = loans.filter(l => 
-    ['paid', 'defaulted'].includes(l.status)
+  const completedLoans = loans.filter((l) =>
+    ["paid", "defaulted"].includes(l.status),
   ).length;
   const defaultRate = completedLoans > 0 ? defaultedCount / completedLoans : 0;
 
   return {
     totalLoans: loans.length,
-    activeLoans: byStatus['active'] || 0,
+    activeLoans: byStatus["active"] || 0,
     totalDisbursed,
     totalRemaining,
     defaultRate,
@@ -622,26 +665,29 @@ export async function processLoanPayments(): Promise<{
     failed: 0,
     totalCollected: 0,
   };
-  
+
   // Get all active loans with payment due
   const activeLoans = await prisma.loan.findMany({
-    where: { status: 'active' },
+    where: { status: "active" },
     include: { account: true },
   });
-  
+
   const today = new Date();
-  
+
   for (const loan of activeLoans) {
     // Check if payment is due (simplified: payments due on same day of month as loan start)
     const loanStartDay = loan.createdAt.getDate();
     if (today.getDate() !== loanStartDay) continue;
-    
+
     results.processed++;
-    
+
     // Try to make payment from linked account
     if (loan.account && loan.account.balance >= loan.monthlyPayment) {
       try {
-        const paymentResult = await processLoanPayment(loan.id, loan.monthlyPayment);
+        const paymentResult = await processLoanPayment(
+          loan.id,
+          loan.monthlyPayment,
+        );
         if (paymentResult.success) {
           results.successful++;
           results.totalCollected += loan.monthlyPayment;
@@ -656,7 +702,7 @@ export async function processLoanPayments(): Promise<{
       results.failed++;
     }
   }
-  
+
   return results;
 }
 
@@ -673,31 +719,36 @@ export async function processLoanDefaults(): Promise<{
     defaulted: 0,
     warningsSent: 0,
   };
-  
+
   const activeLoans = await prisma.loan.findMany({
-    where: { status: 'active' },
-    include: { 
-      payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+    where: { status: "active" },
+    include: {
+      payments: { orderBy: { createdAt: "desc" }, take: 1 },
       user: true,
     },
   });
-  
+
   const now = new Date();
-  
+
   for (const loan of activeLoans) {
     results.checked++;
-    
+
     // Check last payment date
     const lastPayment = loan.payments[0];
-    const daysSincePayment = lastPayment 
-      ? Math.floor((now.getTime() - lastPayment.createdAt.getTime()) / (1000 * 60 * 60 * 24))
-      : Math.floor((now.getTime() - loan.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-    
+    const daysSincePayment = lastPayment
+      ? Math.floor(
+          (now.getTime() - lastPayment.createdAt.getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
+      : Math.floor(
+          (now.getTime() - loan.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+        );
+
     // Default after 90 days of no payment
     if (daysSincePayment >= 90) {
       await prisma.loan.update({
         where: { id: loan.id },
-        data: { status: 'defaulted' },
+        data: { status: "defaulted" },
       });
       results.defaulted++;
     }
@@ -706,7 +757,7 @@ export async function processLoanDefaults(): Promise<{
       results.warningsSent++;
     }
   }
-  
+
   return results;
 }
 
@@ -716,13 +767,14 @@ export async function processLoanDefaults(): Promise<{
 function calculateMonthlyPayment(
   principal: number,
   annualRate: number,
-  termMonths: number
+  termMonths: number,
 ): number {
   const monthlyRate = annualRate / 12;
   if (monthlyRate === 0) {
     return Math.ceil(principal / termMonths);
   }
-  const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+  const payment =
+    (principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths))) /
     (Math.pow(1 + monthlyRate, termMonths) - 1);
   return Math.ceil(payment);
 }

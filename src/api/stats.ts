@@ -1,5 +1,5 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -13,10 +13,10 @@ interface StatsQueryParams {
 export async function statsRoutes(fastify: FastifyInstance) {
   // GET /stats - Get overall statistics
   fastify.get(
-    '/stats',
+    "/stats",
     async (
       request: FastifyRequest<{ Querystring: StatsQueryParams }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const { accountId, persona, dateFrom, dateTo } = request.query;
@@ -47,14 +47,14 @@ export async function statsRoutes(fastify: FastifyInstance) {
 
         // Get credit/debit totals
         const typeStats = await prisma.transaction.groupBy({
-          by: ['type'],
+          by: ["type"],
           where,
           _sum: { amount: true },
           _count: true,
         });
 
-        const creditData = typeStats.find((s) => s.type === 'credit');
-        const debitData = typeStats.find((s) => s.type === 'debit');
+        const creditData = typeStats.find((s) => s.type === "credit");
+        const debitData = typeStats.find((s) => s.type === "debit");
 
         const totalCredits = creditData?._sum.amount || 0;
         const totalDebits = debitData?._sum.amount || 0;
@@ -63,7 +63,7 @@ export async function statsRoutes(fastify: FastifyInstance) {
 
         // Get category breakdown
         const categoryStats = await prisma.transaction.groupBy({
-          by: ['category', 'type'],
+          by: ["category", "type"],
           where,
           _sum: { amount: true },
           _count: true,
@@ -79,8 +79,8 @@ export async function statsRoutes(fastify: FastifyInstance) {
             ? Math.round((stat._sum.amount || 0) / stat._count)
             : 0,
           averageFormatted: stat._count
-            ? `$${(((stat._sum.amount || 0) / stat._count) / 100).toFixed(2)}`
-            : '$0.00',
+            ? `$${((stat._sum.amount || 0) / stat._count / 100).toFixed(2)}`
+            : "$0.00",
         }));
 
         // Get monthly totals using Prisma native query
@@ -94,20 +94,33 @@ export async function statsRoutes(fastify: FastifyInstance) {
         });
 
         // Aggregate monthly data in JavaScript
-        const monthlyMap = new Map<string, { credits: number; debits: number; creditCount: number; debitCount: number }>();
-        
+        const monthlyMap = new Map<
+          string,
+          {
+            credits: number;
+            debits: number;
+            creditCount: number;
+            debitCount: number;
+          }
+        >();
+
         for (const txn of transactions) {
           const month = txn.createdAt.toISOString().slice(0, 7); // YYYY-MM
-          const existing = monthlyMap.get(month) || { credits: 0, debits: 0, creditCount: 0, debitCount: 0 };
-          
-          if (txn.type === 'credit') {
+          const existing = monthlyMap.get(month) || {
+            credits: 0,
+            debits: 0,
+            creditCount: 0,
+            debitCount: 0,
+          };
+
+          if (txn.type === "credit") {
             existing.credits += txn.amount;
             existing.creditCount += 1;
           } else {
             existing.debits += txn.amount;
             existing.debitCount += 1;
           }
-          
+
           monthlyMap.set(month, existing);
         }
 
@@ -138,19 +151,17 @@ export async function statsRoutes(fastify: FastifyInstance) {
             averageCredit: creditCount
               ? Math.round(totalCredits / creditCount)
               : 0,
-            averageDebit: debitCount
-              ? Math.round(totalDebits / debitCount)
-              : 0,
+            averageDebit: debitCount ? Math.round(totalDebits / debitCount) : 0,
             // Formatted versions
             totalCreditsFormatted: `$${(totalCredits / 100).toFixed(2)}`,
             totalDebitsFormatted: `$${(totalDebits / 100).toFixed(2)}`,
             netFlowFormatted: `$${((totalCredits - totalDebits) / 100).toFixed(2)}`,
             averageCreditFormatted: creditCount
               ? `$${(totalCredits / creditCount / 100).toFixed(2)}`
-              : '$0.00',
+              : "$0.00",
             averageDebitFormatted: debitCount
               ? `$${(totalDebits / debitCount / 100).toFixed(2)}`
-              : '$0.00',
+              : "$0.00",
           },
           categoryBreakdown,
           monthlyData: monthlyDataFormatted,
@@ -163,16 +174,16 @@ export async function statsRoutes(fastify: FastifyInstance) {
         });
       } catch (error) {
         fastify.log.error(error);
-        reply.status(500).send({ error: 'Failed to fetch statistics' });
+        reply.status(500).send({ error: "Failed to fetch statistics" });
       }
-    }
+    },
   );
 
   // GET /stats/personas - Get statistics by persona
-  fastify.get('/stats/personas', async (_request, reply) => {
+  fastify.get("/stats/personas", async (_request, reply) => {
     try {
       const personas = await prisma.account.groupBy({
-        by: ['persona'],
+        by: ["persona"],
         _count: true,
         _sum: { balance: true },
       });
@@ -180,7 +191,7 @@ export async function statsRoutes(fastify: FastifyInstance) {
       const personaStats = await Promise.all(
         personas.map(async (p) => {
           const transactionStats = await prisma.transaction.groupBy({
-            by: ['type'],
+            by: ["type"],
             where: {
               account: {
                 persona: p.persona,
@@ -190,10 +201,8 @@ export async function statsRoutes(fastify: FastifyInstance) {
             _count: true,
           });
 
-          const creditData = transactionStats.find(
-            (s) => s.type === 'credit'
-          );
-          const debitData = transactionStats.find((s) => s.type === 'debit');
+          const creditData = transactionStats.find((s) => s.type === "credit");
+          const debitData = transactionStats.find((s) => s.type === "debit");
 
           return {
             persona: p.persona,
@@ -205,13 +214,13 @@ export async function statsRoutes(fastify: FastifyInstance) {
             transactionCount:
               (creditData?._count || 0) + (debitData?._count || 0),
           };
-        })
+        }),
       );
 
       reply.send({ personas: personaStats });
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch persona statistics' });
+      reply.status(500).send({ error: "Failed to fetch persona statistics" });
     }
   });
 }

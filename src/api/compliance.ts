@@ -3,8 +3,8 @@
  * Endpoints for KYC, AML, and sanction screening
  */
 
-import type { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from "fastify";
+import { PrismaClient } from "@prisma/client";
 import {
   processKYCVerification,
   performSanctionScreening,
@@ -13,7 +13,7 @@ import {
   getUserComplianceLogs,
   getComplianceSummary,
   runScheduledComplianceChecks,
-} from '../engines/compliance.js';
+} from "../engines/compliance.js";
 
 const prisma = new PrismaClient();
 
@@ -22,7 +22,7 @@ export async function complianceRoutes(fastify: FastifyInstance) {
    * GET /compliance
    * Get overall compliance summary
    */
-  fastify.get('/', async () => {
+  fastify.get("/", async () => {
     return getComplianceSummary();
   });
 
@@ -30,31 +30,34 @@ export async function complianceRoutes(fastify: FastifyInstance) {
    * GET /compliance/users/:id
    * Get compliance status for a user
    */
-  fastify.get<{ Params: { id: string } }>('/users/:id', async (request, reply) => {
-    const { id } = request.params;
+  fastify.get<{ Params: { id: string } }>(
+    "/users/:id",
+    async (request, reply) => {
+      const { id } = request.params;
 
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        kycStatus: true,
-        amlStatus: true,
-        sanctionStatus: true,
-      },
-    });
+      const user = await prisma.user.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          kycStatus: true,
+          amlStatus: true,
+          sanctionStatus: true,
+        },
+      });
 
-    if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
+      if (!user) {
+        return reply.code(404).send({ error: "User not found" });
+      }
 
-    const recentLogs = await getUserComplianceLogs(id, { limit: 10 });
+      const recentLogs = await getUserComplianceLogs(id, { limit: 10 });
 
-    return {
-      ...user,
-      recentComplianceLogs: recentLogs,
-    };
-  });
+      return {
+        ...user,
+        recentComplianceLogs: recentLogs,
+      };
+    },
+  );
 
   /**
    * POST /compliance/users/:id/kyc
@@ -63,25 +66,29 @@ export async function complianceRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string };
     Body: {
-      documentType: 'passport' | 'drivers_license' | 'national_id';
+      documentType: "passport" | "drivers_license" | "national_id";
     };
-  }>('/users/:id/kyc', async (request, reply) => {
+  }>("/users/:id/kyc", async (request, reply) => {
     const { id } = request.params;
     const { documentType } = request.body;
 
     if (!documentType) {
-      return reply.code(400).send({ error: 'Document type is required' });
+      return reply.code(400).send({ error: "Document type is required" });
     }
 
-    const validTypes = ['passport', 'drivers_license', 'national_id'];
+    const validTypes = ["passport", "drivers_license", "national_id"];
     if (!validTypes.includes(documentType)) {
-      return reply.code(400).send({ error: `Invalid document type. Valid types: ${validTypes.join(', ')}` });
+      return reply
+        .code(400)
+        .send({
+          error: `Invalid document type. Valid types: ${validTypes.join(", ")}`,
+        });
     }
 
     const result = await processKYCVerification(id, documentType);
 
-    if (!result.success && result.message === 'User not found') {
-      return reply.code(404).send({ error: 'User not found' });
+    if (!result.success && result.message === "User not found") {
+      return reply.code(404).send({ error: "User not found" });
     }
 
     return result;
@@ -94,13 +101,13 @@ export async function complianceRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string };
     Body: { name?: string; country?: string };
-  }>('/users/:id/sanction-screen', async (request, reply) => {
+  }>("/users/:id/sanction-screen", async (request, reply) => {
     const { id } = request.params;
     const { name, country } = request.body || {};
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const result = await performSanctionScreening(id, name, country);
@@ -118,17 +125,17 @@ export async function complianceRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string };
     Body: { reviewerNote: string };
-  }>('/users/:id/aml/clear', async (request, reply) => {
+  }>("/users/:id/aml/clear", async (request, reply) => {
     const { id } = request.params;
     const { reviewerNote } = request.body;
 
     if (!reviewerNote) {
-      return reply.code(400).send({ error: 'Reviewer note is required' });
+      return reply.code(400).send({ error: "Reviewer note is required" });
     }
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const result = await clearAMLFlag(id, reviewerNote);
@@ -146,24 +153,24 @@ export async function complianceRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string };
     Body: { reason: string };
-  }>('/users/:id/aml/block', async (request, reply) => {
+  }>("/users/:id/aml/block", async (request, reply) => {
     const { id } = request.params;
     const { reason } = request.body;
 
     if (!reason) {
-      return reply.code(400).send({ error: 'Reason is required' });
+      return reply.code(400).send({ error: "Reason is required" });
     }
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const result = await blockUserAML(id, reason);
 
     return {
       userId: id,
-      message: 'User blocked and accounts frozen',
+      message: "User blocked and accounts frozen",
       ...result,
     };
   });
@@ -178,22 +185,22 @@ export async function complianceRoutes(fastify: FastifyInstance) {
       status?: string;
       limit?: string;
     };
-  }>('/logs', async (request) => {
+  }>("/logs", async (request) => {
     const { type, status, limit } = request.query;
 
     const where: any = {};
-    
+
     if (type) {
       where.type = type;
     }
-    
+
     if (status) {
       where.status = status;
     }
 
     const logs = await prisma.complianceLog.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit ? parseInt(limit) : 50,
       include: {
         user: { select: { id: true, name: true } },
@@ -207,11 +214,11 @@ export async function complianceRoutes(fastify: FastifyInstance) {
    * POST /compliance/run-checks
    * Run scheduled compliance checks manually
    */
-  fastify.post('/run-checks', async () => {
+  fastify.post("/run-checks", async () => {
     const result = await runScheduledComplianceChecks();
 
     return {
-      message: 'Compliance checks completed',
+      message: "Compliance checks completed",
       ...result,
     };
   });
@@ -220,13 +227,13 @@ export async function complianceRoutes(fastify: FastifyInstance) {
    * GET /compliance/flagged
    * Get all users with compliance issues
    */
-  fastify.get('/flagged', async () => {
+  fastify.get("/flagged", async () => {
     const users = await prisma.user.findMany({
       where: {
         OR: [
-          { kycStatus: { in: ['pending', 'rejected', 'expired'] } },
-          { amlStatus: { in: ['flagged', 'blocked'] } },
-          { sanctionStatus: { in: ['match', 'blocked'] } },
+          { kycStatus: { in: ["pending", "rejected", "expired"] } },
+          { amlStatus: { in: ["flagged", "blocked"] } },
+          { sanctionStatus: { in: ["match", "blocked"] } },
         ],
       },
       select: {

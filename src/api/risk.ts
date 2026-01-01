@@ -3,8 +3,8 @@
  * Endpoints for risk management and monitoring
  */
 
-import type { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from "fastify";
+import { PrismaClient } from "@prisma/client";
 import {
   calculateUserRiskScore,
   logRiskEvent,
@@ -12,7 +12,7 @@ import {
   getRiskSummary,
   type RiskLevel,
   type RiskEventType,
-} from '../engines/risk.js';
+} from "../engines/risk.js";
 
 const prisma = new PrismaClient();
 
@@ -21,7 +21,7 @@ export async function riskRoutes(fastify: FastifyInstance) {
    * GET /risk
    * Get overall risk summary
    */
-  fastify.get('/', async () => {
+  fastify.get("/", async () => {
     return getRiskSummary();
   });
 
@@ -29,48 +29,54 @@ export async function riskRoutes(fastify: FastifyInstance) {
    * GET /risk/users/:id
    * Get risk profile for a specific user
    */
-  fastify.get<{ Params: { id: string } }>('/users/:id', async (request, reply) => {
-    const { id } = request.params;
+  fastify.get<{ Params: { id: string } }>(
+    "/users/:id",
+    async (request, reply) => {
+      const { id } = request.params;
 
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return reply.code(404).send({ error: "User not found" });
+      }
 
-    const riskProfile = await calculateUserRiskScore(id);
-    const recentEvents = await getUserRiskEvents(id, { limit: 10 });
+      const riskProfile = await calculateUserRiskScore(id);
+      const recentEvents = await getUserRiskEvents(id, { limit: 10 });
 
-    return {
-      userId: id,
-      userName: user.name,
-      currentRiskScore: user.riskScore,
-      riskProfile,
-      recentEvents,
-    };
-  });
+      return {
+        userId: id,
+        userName: user.name,
+        currentRiskScore: user.riskScore,
+        riskProfile,
+        recentEvents,
+      };
+    },
+  );
 
   /**
    * POST /risk/users/:id/recalculate
    * Recalculate and update risk score for a user
    */
-  fastify.post<{ Params: { id: string } }>('/users/:id/recalculate', async (request, reply) => {
-    const { id } = request.params;
+  fastify.post<{ Params: { id: string } }>(
+    "/users/:id/recalculate",
+    async (request, reply) => {
+      const { id } = request.params;
 
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return reply.code(404).send({ error: "User not found" });
+      }
 
-    const riskProfile = await calculateUserRiskScore(id);
+      const riskProfile = await calculateUserRiskScore(id);
 
-    return {
-      userId: id,
-      previousScore: user.riskScore,
-      newScore: riskProfile.overallScore,
-      level: riskProfile.level,
-      factors: riskProfile.factors,
-    };
-  });
+      return {
+        userId: id,
+        previousScore: user.riskScore,
+        newScore: riskProfile.overallScore,
+        level: riskProfile.level,
+        factors: riskProfile.factors,
+      };
+    },
+  );
 
   /**
    * GET /risk/events
@@ -78,7 +84,7 @@ export async function riskRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{
     Querystring: { level?: string; limit?: string };
-  }>('/events', async (request) => {
+  }>("/events", async (request) => {
     const { level, limit } = request.query;
 
     const where: any = {};
@@ -88,7 +94,7 @@ export async function riskRoutes(fastify: FastifyInstance) {
 
     const events = await prisma.riskEvent.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit ? parseInt(limit) : 50,
       include: {
         user: { select: { id: true, name: true } },
@@ -109,12 +115,12 @@ export async function riskRoutes(fastify: FastifyInstance) {
       type: RiskEventType;
       description: string;
     };
-  }>('/events', async (request, reply) => {
+  }>("/events", async (request, reply) => {
     const { userId, level, type, description } = request.body;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
+      return reply.code(404).send({ error: "User not found" });
     }
 
     await logRiskEvent(userId, type, level, description);

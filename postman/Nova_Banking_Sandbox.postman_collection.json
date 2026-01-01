@@ -1,0 +1,938 @@
+{
+  "info": {
+    "_postman_id": "nova-sandbox-v4",
+    "name": "Nova Banking Sandbox API",
+    "description": "Comprehensive banking simulation API for testing and development.\n\n## Features\n- Account Management\n- Transaction Processing\n- Fraud Detection\n- Risk Scoring\n- Loan Management\n- Investment Portfolio\n- Compliance Monitoring\n- Chaos Engineering\n\n## Getting Started\n1. Start the sandbox server\n2. Import this collection\n3. Run requests!\n\nBase URL: http://localhost:4000",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "loanId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Simple health check endpoint"
+          }
+        },
+        {
+          "name": "API Root",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Get API version and status"
+          }
+        },
+        {
+          "name": "Sandbox Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "health"]
+            },
+            "description": "Comprehensive sandbox health status"
+          }
+        },
+        {
+          "name": "Sandbox Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "stats"]
+            },
+            "description": "Get comprehensive sandbox statistics"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏦 Accounts",
+      "item": [
+        {
+          "name": "List All Accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.accounts && response.accounts.length > 0) {",
+                  "    pm.collectionVariables.set('accountId', response.accounts[0].id);",
+                  "    pm.collectionVariables.set('userId', response.accounts[0].userId);",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has accounts array', () => {",
+                  "    pm.expect(response.accounts).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/accounts?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"}
+              ]
+            },
+            "description": "List all accounts with pagination"
+          }
+        },
+        {
+          "name": "Get Account by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "{{accountId}}"]
+            },
+            "description": "Get detailed account information"
+          }
+        },
+        {
+          "name": "Get Account Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.transactions && response.transactions.length > 0) {",
+                  "    pm.collectionVariables.set('transactionId', response.transactions[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/accounts/{{accountId}}/transactions?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "{{accountId}}", "transactions"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"}
+              ]
+            },
+            "description": "Get transactions for a specific account"
+          }
+        },
+        {
+          "name": "Filter Accounts by Type",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/accounts?type=checking",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts"],
+              "query": [
+                {"key": "type", "value": "checking"}
+              ]
+            },
+            "description": "Filter accounts by type (checking, savings, investment)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Transactions",
+      "item": [
+        {
+          "name": "Create Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.id) {",
+                  "    pm.collectionVariables.set('transactionId', response.id);",
+                  "}",
+                  "",
+                  "pm.test('Transaction created', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"type\": \"debit\",\n  \"amount\": 5000,\n  \"description\": \"Test purchase from Postman\",\n  \"category\": \"shopping\",\n  \"merchantName\": \"Test Store\",\n  \"location\": \"New York, NY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions"]
+            },
+            "description": "Create a new transaction (amount in cents)"
+          }
+        },
+        {
+          "name": "Get Transaction by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}"]
+            },
+            "description": "Get transaction details"
+          }
+        },
+        {
+          "name": "Get All Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transactions?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "50"}
+              ]
+            },
+            "description": "List all transactions with pagination"
+          }
+        },
+        {
+          "name": "Process Pending Transactions",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/transactions/process-pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "transactions", "process-pending"]
+            },
+            "description": "Force process all pending transactions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Statistics",
+      "item": [
+        {
+          "name": "Get Overall Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"]
+            },
+            "description": "Get overall transaction statistics"
+          }
+        },
+        {
+          "name": "Stats by Account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats?accountId={{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"],
+              "query": [
+                {"key": "accountId", "value": "{{accountId}}"}
+              ]
+            },
+            "description": "Get statistics for a specific account"
+          }
+        },
+        {
+          "name": "Stats by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats?dateFrom=2025-01-01&dateTo=2025-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"],
+              "query": [
+                {"key": "dateFrom", "value": "2025-01-01"},
+                {"key": "dateTo", "value": "2025-12-31"}
+              ]
+            },
+            "description": "Get statistics for a date range"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎮 Simulation Control",
+      "item": [
+        {
+          "name": "Get Simulation Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/simulation/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "simulation", "status"]
+            },
+            "description": "Check if simulation is running"
+          }
+        },
+        {
+          "name": "Start Simulation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/simulation/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "simulation", "start"]
+            },
+            "description": "Start the automatic simulation engine"
+          }
+        },
+        {
+          "name": "Stop Simulation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/simulation/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "simulation", "stop"]
+            },
+            "description": "Stop the simulation engine"
+          }
+        },
+        {
+          "name": "Trigger Single Cycle",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/simulation/trigger",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "simulation", "trigger"]
+            },
+            "description": "Manually trigger one simulation cycle"
+          }
+        },
+        {
+          "name": "Update Simulation Config",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intervalMs\": 30000,\n  \"mode\": \"random\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "config"]
+            },
+            "description": "Update simulation configuration"
+          }
+        }
+      ]
+    },
+    {
+      "name": "💥 Chaos Mode",
+      "item": [
+        {
+          "name": "Get Current Mode",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/mode",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "mode"]
+            },
+            "description": "Get current chaos mode status"
+          }
+        },
+        {
+          "name": "Set Normal Mode",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"normal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/mode",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "mode"]
+            },
+            "description": "Reset to normal operation"
+          }
+        },
+        {
+          "name": "Set Latency Mode",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"latency\",\n  \"latencyMs\": 2000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/mode",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "mode"]
+            },
+            "description": "Add artificial latency (2 seconds)"
+          }
+        },
+        {
+          "name": "Set Flaky Mode",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"flaky\",\n  \"failureRate\": 0.3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/mode",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "mode"]
+            },
+            "description": "30% random failure rate"
+          }
+        },
+        {
+          "name": "Set Maintenance Mode",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"maintenance\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/mode",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "mode"]
+            },
+            "description": "Return 503 for all requests"
+          }
+        },
+        {
+          "name": "Reset Mode",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/mode/reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "mode", "reset"]
+            },
+            "description": "Reset to normal mode"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Account Control",
+      "item": [
+        {
+          "name": "Freeze Account",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/account/{{accountId}}/freeze",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "account", "{{accountId}}", "freeze"]
+            },
+            "description": "Freeze an account (block transactions)"
+          }
+        },
+        {
+          "name": "Unfreeze Account",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/account/{{accountId}}/unfreeze",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "account", "{{accountId}}", "unfreeze"]
+            },
+            "description": "Unfreeze an account"
+          }
+        },
+        {
+          "name": "Set Account Balance",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"balance\": 100000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/account/{{accountId}}/set-balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "account", "{{accountId}}", "set-balance"]
+            },
+            "description": "Set account balance (in cents)"
+          }
+        },
+        {
+          "name": "Update Account Settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"overdraftEnabled\": true,\n  \"dailyLimit\": 500000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/account/{{accountId}}/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "account", "{{accountId}}", "settings"]
+            },
+            "description": "Update overdraft and daily limit"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🕵️ Fraud Detection",
+      "item": [
+        {
+          "name": "Get Fraud Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud",
+              "host": ["{{baseUrl}}"],
+              "path": ["fraud"]
+            },
+            "description": "Get fraud alerts summary and recent alerts"
+          }
+        },
+        {
+          "name": "Get Fraud Alert by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud/:alertId",
+              "host": ["{{baseUrl}}"],
+              "path": ["fraud", ":alertId"],
+              "variable": [
+                {"key": "alertId", "value": ""}
+              ]
+            },
+            "description": "Get specific fraud alert details"
+          }
+        },
+        {
+          "name": "Trigger Fraud Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"type\": \"account_takeover\",\n  \"severity\": \"critical\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/fraud/trigger",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "fraud", "trigger"]
+            },
+            "description": "Manually trigger a fraud event for testing"
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚠️ Risk Scoring",
+      "item": [
+        {
+          "name": "Get Risk Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/risk",
+              "host": ["{{baseUrl}}"],
+              "path": ["risk"]
+            },
+            "description": "Get overall risk summary and recent events"
+          }
+        },
+        {
+          "name": "Get User Risk Score",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/risk/user/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["risk", "user", "{{userId}}"]
+            },
+            "description": "Get risk score for a specific user"
+          }
+        },
+        {
+          "name": "Calculate User Risk",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/risk/user/{{userId}}/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["risk", "user", "{{userId}}", "calculate"]
+            },
+            "description": "Recalculate risk score for a user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "💰 Loans",
+      "item": [
+        {
+          "name": "Get Loan Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/loans",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans"]
+            },
+            "description": "Get loan portfolio summary"
+          }
+        },
+        {
+          "name": "Apply for Loan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.id) {",
+                  "    pm.collectionVariables.set('loanId', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"accountId\": \"{{accountId}}\",\n  \"type\": \"personal\",\n  \"amount\": 1000000,\n  \"termMonths\": 12,\n  \"purpose\": \"Home improvement\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "apply"]
+            },
+            "description": "Apply for a new loan (amount in cents)"
+          }
+        },
+        {
+          "name": "Get Loan by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/loans/{{loanId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "{{loanId}}"]
+            },
+            "description": "Get loan details"
+          }
+        },
+        {
+          "name": "Make Loan Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/{{loanId}}/payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "{{loanId}}", "payment"]
+            },
+            "description": "Make a payment on a loan"
+          }
+        },
+        {
+          "name": "Process Due Payments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/loans/process-due",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "loans", "process-due"]
+            },
+            "description": "Process all due loan payments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📈 Portfolio & Investments",
+      "item": [
+        {
+          "name": "Get Portfolio Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/portfolio",
+              "host": ["{{baseUrl}}"],
+              "path": ["portfolio"]
+            },
+            "description": "Get investment portfolio summary"
+          }
+        },
+        {
+          "name": "Get Market Assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/portfolio/assets",
+              "host": ["{{baseUrl}}"],
+              "path": ["portfolio", "assets"]
+            },
+            "description": "List all available market assets"
+          }
+        },
+        {
+          "name": "Trigger Market Crash",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/market/crash",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "market", "crash"]
+            },
+            "description": "Simulate a market crash (-20% to -40%)"
+          }
+        },
+        {
+          "name": "Trigger Market Recovery",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/market/recovery",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "market", "recovery"]
+            },
+            "description": "Simulate market recovery (+10% to +25%)"
+          }
+        },
+        {
+          "name": "Update Market Prices",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/market/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "market", "update"]
+            },
+            "description": "Manually update all market prices"
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚖️ Compliance",
+      "item": [
+        {
+          "name": "Get Compliance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/compliance",
+              "host": ["{{baseUrl}}"],
+              "path": ["compliance"]
+            },
+            "description": "Get KYC/AML/Sanctions compliance summary"
+          }
+        },
+        {
+          "name": "Get User Compliance Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/compliance/user/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["compliance", "user", "{{userId}}"]
+            },
+            "description": "Get compliance status for a specific user"
+          }
+        },
+        {
+          "name": "Run Compliance Checks",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/compliance/run-checks",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "compliance", "run-checks"]
+            },
+            "description": "Manually run scheduled compliance checks"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔧 Admin & Reset",
+      "item": [
+        {
+          "name": "Reset Database",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "reset"]
+            },
+            "description": "Reset database to initial state (WARNING: destructive)"
+          }
+        },
+        {
+          "name": "Get Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "List all users in the system"
+          }
+        },
+        {
+          "name": "Sandbox Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sandbox/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["sandbox", "summary"]
+            },
+            "description": "Get comprehensive sandbox state summary"
+          }
+        }
+      ]
+    }
+  ]
+}

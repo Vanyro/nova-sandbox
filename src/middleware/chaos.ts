@@ -25,15 +25,15 @@ export function resetFailuresInjected(): void {
  * Generate corrupted/malformed data response
  */
 function generateCorruptedResponse(): object {
-  const corruptions = [
-    { dat: null, err: undefined, $undefined: 'NaN' },
+  const corruptions: object[] = [
+    { dat: null, err: null, $undefined: 'NaN' },
     { data: [{ id: NaN, balance: 'not_a_number' }] },
     { response: { nested: { deeply: { broken: {} } } }, timestamp: 'invalid-date' },
-    { accounts: [null, undefined, {}, { id: '' }] },
+    { accounts: [null, null, {}, { id: '' }] },
     { error: null, success: 'maybe', code: -999 },
   ];
   
-  return corruptions[Math.floor(Math.random() * corruptions.length)];
+  return corruptions[Math.floor(Math.random() * corruptions.length)] ?? corruptions[0]!;
 }
 
 /**

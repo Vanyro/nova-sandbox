@@ -4,6 +4,10 @@ import { PERSONAS } from '../core/personas.js';
 import { TransactionGenerator } from '../core/transactionGenerator.js';
 import { createLogger } from '../core/logger.js';
 import { SeededRandom } from '../core/random.js';
+import { initializeMarketAssets, createPortfolio } from '../engines/investment.js';
+import type { PortfolioType } from '../engines/investment.js';
+import { applyForLoan } from '../engines/loans.js';
+import type { LoanType } from '../engines/loans.js';
 
 const prisma = new PrismaClient();
 const logger = createLogger('SeedEngine');
@@ -33,6 +37,32 @@ export async function resetDatabase() {
 
   try {
     // Delete in order due to foreign key constraints
+    // Phase 4 models first
+    await prisma.holding.deleteMany();
+    logger.info('Deleted all holdings');
+    
+    await prisma.portfolio.deleteMany();
+    logger.info('Deleted all portfolios');
+    
+    await prisma.marketAsset.deleteMany();
+    logger.info('Deleted all market assets');
+    
+    await prisma.loanPayment.deleteMany();
+    logger.info('Deleted all loan payments');
+    
+    await prisma.loan.deleteMany();
+    logger.info('Deleted all loans');
+    
+    await prisma.fraudAlert.deleteMany();
+    logger.info('Deleted all fraud alerts');
+    
+    await prisma.riskEvent.deleteMany();
+    logger.info('Deleted all risk events');
+    
+    await prisma.complianceLog.deleteMany();
+    logger.info('Deleted all compliance logs');
+    
+    // Original models
     await prisma.transaction.deleteMany();
     logger.info('Deleted all transactions');
 
@@ -109,8 +139,8 @@ export async function seedDatabase() {
       const userId = masterRng.nextInt(1000, 9999);
       const firstNameIndex = masterRng.nextInt(0, FIRST_NAMES.length - 1);
       const lastNameIndex = masterRng.nextInt(0, LAST_NAMES.length - 1);
-      const firstName = FIRST_NAMES[firstNameIndex];
-      const lastName = LAST_NAMES[lastNameIndex];
+      const firstName = FIRST_NAMES[firstNameIndex] ?? 'User';
+      const lastName = LAST_NAMES[lastNameIndex] ?? 'Test';
       const userName = `${firstName} ${lastName}`;
       const userEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${userId}@example.com`;
 
@@ -238,6 +268,113 @@ export async function seedDatabase() {
     averageTransactionsPerAccount: Math.round(
       totalTransactions / totalAccounts
     ),
+  });
+
+  // Phase 4: Create sample portfolios, loans, and initialize market
+  await seedPhase4Data(config.seedKey);
+}
+
+/**
+ * Seed Phase 4 data: portfolios, loans, market assets
+ */
+async function seedPhase4Data(seedKey: string) {
+  logger.section('💼 Seeding Phase 4 Data');
+
+  // Convert string seedKey to number for SeededRandom
+  const numericSeed = seedKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const rng = new SeededRandom(numericSeed);
+
+  // Initialize market assets
+  await initializeMarketAssets();
+  logger.info('Market assets initialized');
+
+  // Get all users
+  const users = await prisma.user.findMany({
+    include: { accounts: true },
+  });
+
+  // Portfolio assignments based on persona
+  const portfolioMap: Record<string, PortfolioType[]> = {
+    student: ['conservative'],
+    spender: ['balanced'],
+    investor: ['aggressive', 'crypto', 'balanced'],
+    entrepreneur: ['aggressive', 'balanced'],
+  };
+
+  let portfoliosCreated = 0;
+  let loansCreated = 0;
+
+  for (const user of users) {
+    const persona = user.persona || 'student';
+    const portfolioTypes = portfolioMap[persona] || ['balanced'];
+
+    // Create portfolios for investors and entrepreneurs
+    if (persona === 'investor' || persona === 'entrepreneur') {
+      for (const pType of portfolioTypes) {
+        const investmentAmount = rng.nextInt(100000, 1000000); // $1,000 - $10,000
+        try {
+          await createPortfolio(user.id, pType, investmentAmount);
+          portfoliosCreated++;
+        } catch (err) {
+          // Ignore errors, portfolio might already exist
+        }
+      }
+    }
+
+    // Create sample loans based on persona
+    const loanChance: Record<string, number> = {
+      student: 0.8,     // 80% of students have loans
+      spender: 0.4,     // 40% of spenders have loans
+      investor: 0.2,    // 20% of investors have loans
+      entrepreneur: 0.6, // 60% of entrepreneurs have loans
+    };
+
+    const loanTypeMap: Record<string, LoanType> = {
+      student: 'student',
+      spender: 'consumer',
+      investor: 'consumer',
+      entrepreneur: 'business',
+    };
+
+    if (rng.next() < (loanChance[persona] || 0.3)) {
+      const loanType = loanTypeMap[persona] || 'consumer';
+      const loanAmount = rng.nextInt(50000, 500000); // $500 - $5,000
+      
+      // Get the user's first account for the loan
+      const userAccount = user.accounts[0];
+      if (userAccount) {
+        try {
+          const result = await applyForLoan(
+            user.id,
+            userAccount.id,
+            loanType, 
+            loanAmount,
+            rng.nextInt(6, 24), // 6-24 months
+          );
+          if (result.success) {
+            loansCreated++;
+          }
+        } catch (err) {
+          // Ignore errors
+        }
+      }
+    }
+
+    // Set compliance statuses
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        kycStatus: 'verified',
+        amlStatus: 'clear',
+        sanctionStatus: 'clear',
+        riskScore: rng.nextInt(20, 70), // Random initial risk score
+      },
+    });
+  }
+
+  logger.info('Phase 4 seed complete', {
+    portfolios: portfoliosCreated,
+    loans: loansCreated,
   });
 }
 

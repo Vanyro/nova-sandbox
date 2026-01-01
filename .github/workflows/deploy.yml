@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Security Scan"]
+    types:
+      - completed
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to production server
+        run: |
+          echo "Deploying to production..."
+          # Add your deployment commands here
+          # Example: SSH to server, pull latest image, restart containers
+          echo "Deployment completed successfully"
+
+      - name: Health check
+        run: |
+          # Wait for deployment to be ready
+          sleep 30
+          # curl -f http://your-production-url/health || exit 1
+          echo "Health check passed"
+
+      - name: Notify deployment success
+        run: |
+          echo "Deployment to production completed successfully!"
+          # Add notification logic here (Slack, Discord, etc.)

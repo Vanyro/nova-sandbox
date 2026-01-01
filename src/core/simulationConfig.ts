@@ -83,7 +83,7 @@ export function parseInterval(interval: string): number {
   const match = interval.match(/^(\d+)(ms|s|m|h|d)?$/);
   if (!match) return 3600000; // Default 1 hour
   
-  const value = parseInt(match[1], 10);
+  const value = parseInt(match[1] ?? '3600000', 10);
   const unit = match[2] || 'ms';
   
   const multipliers: Record<string, number> = {
@@ -106,7 +106,7 @@ export function getCurrentTimeWindow(hour: number): TimeWindow {
       return window;
     }
   }
-  return TIME_WINDOWS[0]; // Default to night
+  return TIME_WINDOWS[0]!; // Default to night (guaranteed to exist)
 }
 
 /**

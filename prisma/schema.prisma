@@ -10,13 +10,23 @@ generator client {
 
 
 model User {
-  id        String    @id @default(uuid())
-  name      String
-  email     String    @unique
-  role      String    @default("USER") // e.g., "USER", "ADMIN"
-  persona   String?   // e.g., "student", "investor", "spender"
-  accounts  Account[]
-  createdAt DateTime  @default(now())
+  id              String          @id @default(uuid())
+  name            String
+  email           String          @unique
+  role            String          @default("USER") // e.g., "USER", "ADMIN"
+  persona         String?         // e.g., "student", "investor", "spender", "entrepreneur", "riskLover"
+  kycStatus       String          @default("pending") // "pending", "verified", "rejected", "expired"
+  kycVerifiedAt   DateTime?
+  amlStatus       String          @default("clear") // "clear", "flagged", "blocked"
+  sanctionStatus  String          @default("clear") // "clear", "match", "blocked"
+  riskScore       Int             @default(50) // 0-100, higher is riskier
+  accounts        Account[]
+  loans           Loan[]
+  portfolios      Portfolio[]
+  riskEvents      RiskEvent[]
+  fraudAlerts     FraudAlert[]
+  complianceLogs  ComplianceLog[]
+  createdAt       DateTime        @default(now())
 }
 
 model Account {
@@ -27,12 +37,17 @@ model Account {
   persona          String?       // Denormalized for easier querying
   riskLevel        String        @default("LOW") // "LOW", "MEDIUM", "HIGH"
   frozen           Boolean       @default(false) // Account freeze status
+  frozenReason     String?       // Reason for freeze
+  frozenAt         DateTime?     // When account was frozen
   overdraftEnabled Boolean       @default(false) // Whether overdraft is allowed
+  overdraftLimit   Int           @default(50000) // Overdraft limit in cents ($500 default)
+  overdraftUsed    Int           @default(0) // Current overdraft usage
   dailyLimit       Int           @default(500000) // Daily spending limit in cents ($5000 default)
   dailySpent       Int           @default(0) // Amount spent today in cents
   dailySpentDate   DateTime?     // Date of last daily spend reset
   user             User          @relation(fields: [userId], references: [id])
   transactions     Transaction[]
+  loans            Loan[]
   createdAt        DateTime      @default(now())
 }
 
@@ -50,18 +65,159 @@ model Transaction {
   status          String   @default("pending") // "pending", "posted", "canceled"
   postAt          DateTime? // When the transaction should be auto-posted
   postedAt        DateTime? // When the transaction was actually posted
+  riskFlag        String?  // Risk flag if any ("suspicious", "flagged", "cleared")
+  fraudFlag       Boolean  @default(false) // Whether flagged as potential fraud
   account         Account  @relation(fields: [accountId], references: [id])
   createdAt       DateTime @default(now())
 }
 
-// Simulation state tracking
+// ==================== LOANS ENGINE ====================
+
+model Loan {
+  id                String        @id @default(uuid())
+  userId            String
+  accountId         String
+  type              String        // "student", "consumer", "business", "emergency"
+  status            String        @default("pending") // "pending", "approved", "active", "paid", "defaulted", "rejected"
+  principalAmount   Int           // Original loan amount in cents
+  remainingAmount   Int           // Remaining balance in cents
+  interestRate      Float         // Annual interest rate (e.g., 0.05 for 5%)
+  monthlyPayment    Int           // Monthly payment amount in cents
+  termMonths        Int           // Loan term in months
+  startDate         DateTime?
+  endDate           DateTime?
+  nextPaymentDate   DateTime?
+  paymentsMade      Int           @default(0)
+  paymentsMissed    Int           @default(0)
+  lastPaymentDate   DateTime?
+  lastPaymentAmount Int?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  defaultedAt       DateTime?
+  user              User          @relation(fields: [userId], references: [id])
+  account           Account       @relation(fields: [accountId], references: [id])
+  payments          LoanPayment[]
+  createdAt         DateTime      @default(now())
+}
+
+model LoanPayment {
+  id          String   @id @default(uuid())
+  loanId      String
+  amount      Int      // Payment amount in cents
+  principal   Int      // Principal portion in cents
+  interest    Int      // Interest portion in cents
+  status      String   @default("completed") // "completed", "failed", "partial"
+  loan        Loan     @relation(fields: [loanId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// ==================== INVESTMENT ENGINE ====================
+
+model Portfolio {
+  id              String    @id @default(uuid())
+  userId          String
+  name            String
+  type            String    // "conservative", "balanced", "aggressive", "crypto"
+  totalValue      Int       @default(0) // Total value in cents
+  totalInvested   Int       @default(0) // Total invested in cents
+  totalGainLoss   Int       @default(0) // Total gain/loss in cents
+  riskTolerance   String    @default("medium") // "low", "medium", "high"
+  user            User      @relation(fields: [userId], references: [id])
+  holdings        Holding[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Holding {
+  id              String    @id @default(uuid())
+  portfolioId     String
+  symbol          String    // e.g., "AAPL", "BTC", "SPY"
+  name            String    // e.g., "Apple Inc.", "Bitcoin", "S&P 500 ETF"
+  type            String    // "stock", "crypto", "etf", "bond", "savings"
+  quantity        Float     // Number of shares/units
+  avgCostBasis    Int       // Average cost per share in cents
+  currentPrice    Int       // Current price per share in cents
+  marketValue     Int       // Current market value in cents
+  gainLoss        Int       // Unrealized gain/loss in cents
+  gainLossPercent Float     // Gain/loss percentage
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Market data for simulation
+model MarketAsset {
+  id           String   @id @default(uuid())
+  symbol       String   @unique
+  name         String
+  type         String   // "stock", "crypto", "etf", "bond"
+  price        Int      // Current price in cents
+  previousPrice Int     // Previous price in cents
+  change       Float    // Daily change percentage
+  volatility   Float    @default(0.02) // Daily volatility factor
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ==================== RISK ENGINE ====================
+
+model RiskEvent {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // "spending_spike", "overdraft", "payment_missed", "unusual_location", etc.
+  level       String   // "low", "medium", "high", "critical"
+  description String
+  metadata    String?  // JSON string with additional details
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// ==================== FRAUD ENGINE ====================
+
+model FraudAlert {
+  id              String    @id @default(uuid())
+  userId          String
+  transactionId   String?
+  type            String    // "geolocation_mismatch", "velocity", "midnight_large", "unusual_pattern"
+  severity        String    // "low", "medium", "high", "critical"
+  status          String    @default("open") // "open", "investigating", "confirmed", "dismissed"
+  description     String
+  metadata        String?   // JSON string with additional details
+  actionTaken     String?   // "none", "account_frozen", "transaction_blocked", "notified"
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  user            User      @relation(fields: [userId], references: [id])
+  createdAt       DateTime  @default(now())
+}
+
+// ==================== COMPLIANCE ENGINE ====================
+
+model ComplianceLog {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // "kyc_check", "aml_screening", "sanction_check", "sar_filed"
+  status      String   // "passed", "failed", "pending", "flagged"
+  description String
+  metadata    String?  // JSON string with additional details
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// ==================== SIMULATION STATE ====================
+
 model SimulationState {
-  id              String   @id @default("singleton")
-  lastRunAt       DateTime?
-  transactionsToday Int    @default(0)
-  failuresInjected Int     @default(0)
-  currentMode     String   @default("normal") // Chaos mode
-  isRunning       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default("singleton")
+  lastRunAt         DateTime?
+  currentDay        DateTime @default(now()) // Current simulation day
+  transactionsToday Int      @default(0)
+  failuresInjected  Int      @default(0)
+  currentMode       String   @default("normal") // Chaos mode
+  isRunning         Boolean  @default(false)
+  marketCrashActive Boolean  @default(false)
+  fraudEventActive  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

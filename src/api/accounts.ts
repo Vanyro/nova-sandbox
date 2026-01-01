@@ -11,10 +11,63 @@ interface AccountQueryParams {
   type?: string;
 }
 
+// OpenAPI schemas for account routes
+const accountSchemas = {
+  listAccounts: {
+    tags: ['Accounts'],
+    summary: 'List all accounts',
+    description: 'Retrieve a paginated list of bank accounts with optional filters',
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', default: 1, description: 'Page number' },
+        limit: { type: 'integer', default: 20, description: 'Items per page' },
+        userId: { type: 'string', format: 'uuid', description: 'Filter by user ID' },
+        persona: { type: 'string', description: 'Filter by persona type' },
+        type: { type: 'string', enum: ['checking', 'savings', 'investment'], description: 'Filter by account type' },
+      },
+    },
+  },
+  getAccount: {
+    tags: ['Accounts'],
+    summary: 'Get account by ID',
+    description: 'Retrieve detailed information about a specific account',
+    params: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', format: 'uuid', description: 'Account ID' },
+      },
+      required: ['id'],
+    },
+  },
+  getAccountTransactions: {
+    tags: ['Accounts'],
+    summary: 'Get account transactions',
+    description: 'Retrieve paginated transactions for a specific account',
+    params: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', format: 'uuid', description: 'Account ID' },
+      },
+      required: ['id'],
+    },
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', default: 1 },
+        limit: { type: 'integer', default: 20 },
+        status: { type: 'string', enum: ['pending', 'posted', 'canceled'] },
+        type: { type: 'string', enum: ['credit', 'debit'] },
+      },
+    },
+  },
+};
+
 export async function accountRoutes(fastify: FastifyInstance) {
   // GET /accounts - List accounts with pagination and filters
   fastify.get(
     '/accounts',
+    { schema: accountSchemas.listAccounts },
     async (
       request: FastifyRequest<{ Querystring: AccountQueryParams }>,
       reply: FastifyReply

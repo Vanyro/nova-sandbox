@@ -1,0 +1,74 @@
+# Production Configuration
+# Use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  sandbox-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    
+    restart: unless-stopped
+    
+    # Don't mount source in production
+    volumes:
+      - sqlite_data:/app/prisma/db
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - HOST=0.0.0.0
+      - DATABASE_URL=file:./db/prod.db
+      # Production simulation settings
+      - AUTO_START_SIMULATION=true
+      - SIMULATION_MODE=realistic
+      - SIMULATION_INTERVAL=3600000
+      # Production settings
+      - LOG_LEVEL=info
+      - ENABLE_SWAGGER=false
+    
+    # Use compiled JavaScript in production
+    command: sh -c "npx prisma migrate deploy && npm run seed && node dist/server.js"
+    
+    # Production healthcheck (more strict)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - sandbox-api
+    profiles:
+      - with-proxy
+
+volumes:
+  sqlite_data:

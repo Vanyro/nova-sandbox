@@ -121,8 +121,8 @@ export async function createTransaction(
       if (!validation.valid) {
         return {
           success: false,
-          error: validation.error,
-          code: validation.code,
+          error: validation.error ?? 'Validation failed',
+          code: validation.code ?? 'VALIDATION_ERROR',
         };
       }
     }
@@ -137,11 +137,11 @@ export async function createTransaction(
         type: options.type,
         amount: options.amount,
         authorizedAmount: options.amount, // Store original amount
-        category: options.category,
-        merchant: options.merchant,
-        location: options.location,
+        category: options.category ?? null,
+        merchant: options.merchant ?? null,
+        location: options.location ?? null,
         reference: options.reference || generateReference(),
-        description: options.description,
+        description: options.description ?? null,
         status: 'pending',
         postAt,
       },

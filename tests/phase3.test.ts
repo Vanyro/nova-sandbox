@@ -3,11 +3,9 @@
  * Tests for simulation engine, transaction lifecycle, chaos modes, and bank rules
  */
 
-import { PrismaClient } from '@prisma/client';
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert';
 
-const prisma = new PrismaClient();
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:4000';
 
 // Helper to make HTTP requests
@@ -24,7 +22,8 @@ async function request(
   const fetchOptions: RequestInit = {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      // Only add Content-Type for requests with body
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...headers,
     },
   };
@@ -47,14 +46,11 @@ describe('Phase 3 Integration Tests', () => {
   let testUserId: string;
   
   before(async () => {
-    // Ensure we have test data
-    const user = await prisma.user.findFirst();
-    if (user) {
-      testUserId = user.id;
-      const account = await prisma.account.findFirst({ where: { userId: user.id } });
-      if (account) {
-        testAccountId = account.id;
-      }
+    // Get test data from the API (not local Prisma)
+    const { data } = await request('/accounts?limit=1');
+    if (data.data && data.data.length > 0) {
+      testAccountId = data.data[0].id;
+      testUserId = data.data[0].userId;
     }
     
     // Reset to normal mode before tests
@@ -64,7 +60,6 @@ describe('Phase 3 Integration Tests', () => {
   after(async () => {
     // Cleanup: Reset to normal mode
     await request('/sandbox/mode/reset', { method: 'POST' });
-    await prisma.$disconnect();
   });
   
   describe('Sandbox Stats Endpoint', () => {
@@ -186,12 +181,10 @@ describe('Phase 3 Integration Tests', () => {
   
   describe('Account Freeze/Unfreeze', () => {
     beforeEach(async () => {
-      // Ensure account is unfrozen
+      // Ensure account is unfrozen via API
       if (testAccountId) {
-        await prisma.account.update({
-          where: { id: testAccountId },
-          data: { frozen: false },
-        });
+        // Try to unfreeze - may fail if not frozen, that's ok
+        await request(`/sandbox/account/${testAccountId}/unfreeze`, { method: 'PATCH' });
       }
     });
     
@@ -325,18 +318,15 @@ describe('Phase 3 Integration Tests', () => {
     });
     
     it('pending transactions have correct status', async () => {
-      // Check database for pending transactions
-      const pendingCount = await prisma.transaction.count({
-        where: { status: 'pending' },
-      });
+      // Check stats via API
+      const { status, data } = await request('/sandbox/stats');
       
-      const postedCount = await prisma.transaction.count({
-        where: { status: 'posted' },
-      });
-      
+      assert.strictEqual(status, 200);
       // Both counts should be valid numbers
-      assert.ok(pendingCount >= 0);
-      assert.ok(postedCount >= 0);
+      assert.ok(typeof data.transactions.pending === 'number');
+      assert.ok(typeof data.transactions.posted === 'number');
+      assert.ok(data.transactions.pending >= 0);
+      assert.ok(data.transactions.posted >= 0);
     });
   });
   
@@ -357,15 +347,15 @@ describe('Phase 3 Integration Tests', () => {
   describe('Bank Rules', () => {
     beforeEach(async () => {
       if (testAccountId) {
-        await prisma.account.update({
-          where: { id: testAccountId },
-          data: {
-            frozen: false,
-            overdraftEnabled: false,
-            dailyLimit: 500000,
-            dailySpent: 0,
-            balance: 100000, // $1000
-          },
+        // Reset account via API
+        await request(`/sandbox/account/${testAccountId}/unfreeze`, { method: 'PATCH' });
+        await request(`/sandbox/account/${testAccountId}/settings`, {
+          method: 'PATCH',
+          body: { overdraftEnabled: false, dailyLimit: 500000 },
+        });
+        await request(`/sandbox/account/${testAccountId}/set-balance`, {
+          method: 'PATCH',
+          body: { balance: 100000 }, // $1000
         });
       }
     });
@@ -373,24 +363,15 @@ describe('Phase 3 Integration Tests', () => {
     it('frozen account cannot process transactions via simulation', async () => {
       if (!testAccountId) return;
       
-      // Freeze the account
+      // Freeze the account via API
       await request(`/sandbox/account/${testAccountId}/freeze`, { method: 'PATCH' });
       
-      // Get account balance before
-      const accountBefore = await prisma.account.findUnique({
-        where: { id: testAccountId },
-      });
-      
       // Trigger simulation
-      await request('/sandbox/simulation/trigger', { method: 'POST' });
+      const { data: triggerData } = await request('/sandbox/simulation/trigger', { method: 'POST' });
       
-      // Account balance should not change much for frozen accounts
-      const accountAfter = await prisma.account.findUnique({
-        where: { id: testAccountId },
-      });
-      
-      // This is a soft check - frozen accounts shouldn't generate new transactions
-      assert.ok(accountAfter);
+      // Verify simulation ran
+      assert.ok(triggerData.success);
+      assert.ok(triggerData.result);
       
       // Unfreeze for other tests
       await request(`/sandbox/account/${testAccountId}/unfreeze`, { method: 'PATCH' });

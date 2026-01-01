@@ -1,0 +1,44 @@
+# Development Override Configuration
+# Use: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+# Or simply: docker-compose up (override is applied automatically)
+
+services:
+  sandbox-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=development
+    
+    volumes:
+      # Mount source code for hot-reloading
+      - .:/app
+      - /app/node_modules
+      - sqlite_data:/app/prisma/db
+    
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - HOST=0.0.0.0
+      - DATABASE_URL=file:./db/dev.db
+      # Development simulation settings
+      - AUTO_START_SIMULATION=false
+      - SIMULATION_MODE=random
+      - SIMULATION_INTERVAL=30000
+      # Debug settings
+      - LOG_LEVEL=debug
+      - ENABLE_SWAGGER=true
+    
+    # Use tsx watch for hot-reloading in development
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm run dev"
+    
+    # Healthcheck for development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  sqlite_data:

@@ -35,20 +35,27 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-        continue-on-error: true
+
+      - name: Set Docker images
+        id: docker-images
+        run: |
+          echo "images<<EOF" >> $GITHUB_OUTPUT
+          echo "ghcr.io/${{ github.repository }}" >> $GITHUB_OUTPUT
+          if [ "${{ secrets.DOCKER_USERNAME }}" != "" ]; then
+            echo "novafintech/nova-sandbox" >> $GITHUB_OUTPUT
+          fi
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ghcr.io/${{ github.repository }}
-            novafintech/nova-sandbox
+          images: ${{ steps.docker-images.outputs.images }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr

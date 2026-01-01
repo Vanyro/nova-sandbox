@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "lint": "tsc --noEmit",
     "seed": "tsx src/seed/index.ts",
     "seed:reset": "tsx src/seed/index.ts --reset",
     "seed:light": "SEED_MODE=light tsx src/seed/index.ts",

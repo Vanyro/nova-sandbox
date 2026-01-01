@@ -5,6 +5,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { PrismaClient } from "@prisma/client";
+import { randomInt } from "crypto";
 import { createLogger } from "../core/logger.js";
 import {
   getSimulationConfig,
@@ -672,7 +673,7 @@ export async function sandboxRoutes(fastify: FastifyInstance) {
             .status(400)
             .send({ error: "No users found in database" });
         }
-        const randomUser = users[Math.floor(Math.random() * users.length)];
+        const randomUser = users[randomInt(0, users.length)];
         targetUserId = randomUser?.id;
       }
 

@@ -46,7 +46,7 @@ jobs:
         run: |
           echo "images<<EOF" >> $GITHUB_OUTPUT
           echo "ghcr.io/${{ github.repository }}" >> $GITHUB_OUTPUT
-          echo "novafintech/nova-sandbox" >> $GITHUB_OUTPUT
+          echo "vanistas/nova-sandbox" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Extract metadata

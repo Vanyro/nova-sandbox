@@ -15,6 +15,9 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -23,18 +26,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+        continue-on-error: true
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: novafintech/nova-sandbox
+          images: |
+            ghcr.io/${{ github.repository }}
+            novafintech/nova-sandbox
           tags: |
             type=ref,event=branch
             type=ref,event=pr
